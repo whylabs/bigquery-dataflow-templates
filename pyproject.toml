@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "dataflow-templates"
+version = "0.1.0"
+description = "Templates for use in GCP's Dataflow."
+authors = ["Anthony Naddeo <anthony.naddeo@gmail.com>"]
+license = "Apache-2.0 license"
+readme = "README.md"
+packages = [{include = "ai/**/*.py"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+whylogs = {extras = ["whylabs"], version = "^1.1.11"}
+pandas = "^1.5.1"
+apache-beam = {extras = ["gcp"], version = "^2.42.0"}
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^0.990"
+pytest = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
