@@ -1,5 +1,4 @@
 {
-  // "mypy.dmypyExecutable": "/home/anthony/.cache/pypoetry/virtualenvs/dataflow-templates-Ui4Gn7dn-py3.8/bin/dmypy",
   "mypy.runUsingActiveInterpreter": true,
   "python.formatting.autopep8Args": [
       "--max-line-length=140"
