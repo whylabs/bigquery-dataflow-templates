@@ -4,7 +4,7 @@ REGION=us-west1 # us-west2, us-central1
 TEMPLATE_LOCATION=$(BUCKET)/$(NAME)
 TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
 
-# TODO make sure to version the different templates, probably with a latest as well
+# TODO make sure to version the different templates, probably with a latest
 
 .PHONY: default profile_query_template profile_query_template_matadata help
 
