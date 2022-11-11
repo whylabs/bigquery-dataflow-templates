@@ -2,8 +2,7 @@ name: Workflow
 
 on:
   push:
-    # branches: [ "master" ]
-    branches: "*"
+    branches: [ "master" ]
   pull_request:
     branches: "*"
 
