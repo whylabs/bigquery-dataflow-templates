@@ -23,7 +23,7 @@ profile_query_template: requirements.txt profile_query_template_matadata ## Uplo
 
 profile_query_template_matadata: NAME=profile_query_template
 profile_query_template_matadata: ## Upload the metadata file for profile_query_template
-	gsutil cp metadata/$(NAME)_metadata  $(BUCKET)/$(NAME)_metadata
+	gcloud storage cp metadata/$(NAME)_metadata  $(BUCKET)/$(NAME)_metadata
 
 requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --output requirements.txt
