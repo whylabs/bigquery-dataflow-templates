@@ -283,15 +283,9 @@ def run(argv=None, save_main_session=True):
             date_grouping_frequency=template_arguments.date_grouping_frequency)
 
         # The main pipeline
-        table_spec = bigquery.TableReference(
-            projectId='whylogs-359820',
-            datasetId='hacker_news',
-            tableId='comments'
-        )
-
         result = (
             p
-            | 'ReadTable' >> beam.io.ReadFromBigQuery(table=table_spec, use_standard_sql=True, method='DIRECT_READ')
+            | 'ReadTable' >> beam.io.ReadFromBigQuery(query=query_input, use_standard_sql=True, method='DIRECT_READ')
             .with_output_types(Dict[str, Any])
             | 'Profile' >> beam.ParDo(ProfileDoFn(args))
             | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))
