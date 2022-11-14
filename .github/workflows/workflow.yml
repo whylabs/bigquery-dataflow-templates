@@ -3,8 +3,6 @@ name: Workflow
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: "*"
 
 env:
   DOC_DIR: build/dokka/html/
@@ -31,9 +29,10 @@ jobs:
           workload_identity_provider: 'projects/205017367875/locations/global/workloadIdentityPools/github-ci/providers/dataflow-templates-ci'
           service_account: 'dataflow-template-github-ci@whylogs-359820.iam.gserviceaccount.com'
 
-
       - name: Upload metadata to GCS
-        run: make profile_query_template_matadata 
+        run: |
+          make profile_query_template_matadata
+          make profile_query_template_matadata_template
 
 
 

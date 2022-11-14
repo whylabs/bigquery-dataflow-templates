@@ -286,6 +286,7 @@ def run(argv=None, save_main_session=True):
             p
             | 'ReadTable' >> beam.io.ReadFromBigQuery(query=query_input, use_standard_sql=True)
             .with_output_types(Dict[str, Any])
+            | 'Reshuffle' >> beam.Reshuffle()
             | 'Profile' >> beam.ParDo(ProfileDoFn(args))
             | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))
             .with_output_types(ProfileIndex)
