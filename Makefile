@@ -20,6 +20,10 @@ profile_query_template: NAME=profile_query_template
 profile_query_template: VERSION=$(SHA)
 profile_query_template: profile_query_template_matadata upload_template version_metadata ## Upload the dataflow template that profiles a query
 
+profile_query_template_matadata: NAME=profile_query_template
+profile_query_template_matadata: ## Upload the metadata file for profile_query_template
+	gcloud storage cp metadata/$(NAME)_metadata $(TEMPLATE_LOCATION)/$(VERSION)/$(NAME)_metadata
+
 upload_template: 
 upload_template: requirements.txt # Base target for other targets to use. Set the NAME, VERSION
 	python -m ai.whylabs.templates.$(NAME) \
@@ -30,10 +34,6 @@ upload_template: requirements.txt # Base target for other targets to use. Set th
 		--staging_location $(TEMPLATE_LOCATION)/$(VERSION)/$(NAME)_staging \
 		--region $(REGION) \
 		--requirements_file=requirements.txt
-
-profile_query_template_matadata: NAME=profile_query_template
-profile_query_template_matadata: ## Upload the metadata file for profile_query_template
-	gcloud storage cp metadata/$(NAME)_metadata $(TEMPLATE_LOCATION)/$(VERSION)/$(NAME)_metadata
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
