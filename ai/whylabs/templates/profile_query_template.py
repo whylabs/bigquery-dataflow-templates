@@ -291,7 +291,7 @@ def run(argv=None, save_main_session=True):
 
         result = (
             p
-            | 'ReadTable' >> beam.io.ReadFromBigQuery(table=table_spec, use_standard_sql=True)
+            | 'ReadTable' >> beam.io.ReadFromBigQuery(table=table_spec, use_standard_sql=True, method='DIRECT_READ')
             .with_output_types(Dict[str, Any])
             | 'Profile' >> beam.ParDo(ProfileDoFn(args))
             | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))
