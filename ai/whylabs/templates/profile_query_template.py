@@ -1,12 +1,11 @@
 import logging
-from apache_beam.io.gcp.internal.clients import bigquery
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import apache_beam as beam
 import pandas as pd
-from apache_beam.io import WriteToText
+from apache_beam.io import WriteToText, ReadFromBigQuery
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 from apache_beam.options.value_provider import (NestedValueProvider,
                                                 RuntimeValueProvider)
@@ -283,15 +282,11 @@ def run(argv=None, save_main_session=True):
             date_grouping_frequency=template_arguments.date_grouping_frequency)
 
         # The main pipeline
-        table_spec = bigquery.TableReference(
-            projectId='whylogs-359820',
-            datasetId='btc_cash',
-            tableId='transactions'
-        )
-
         result = (
             p
-            | 'ReadTable' >> beam.io.ReadFromBigQuery(table=table_spec, use_standard_sql=True, method='DIRECT_READ')
+            | 'ReadTable' >> ReadFromBigQuery(query=query_input,
+                                              use_standard_sql=True,
+                                              method=ReadFromBigQuery.Method.DIRECT_READ)
             .with_output_types(Dict[str, Any])
             | 'Profile' >> beam.ParDo(ProfileDoFn(args))
             | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))
