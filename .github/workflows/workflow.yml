@@ -34,8 +34,8 @@ jobs:
 
       - name: Upload metadata to GCS
         run: |
-          make profile_query_template_matadata
-          make profile_query_template_matadata_template
+          make profile_query_template
+          make profile_query_template_latest
 
 
 
