@@ -266,8 +266,7 @@ BatchConverter.register(ProfileIndexBatchConverter)
 def run(argv=None, save_main_session=True):
     pipeline_options = PipelineOptions()
     template_arguments = pipeline_options.view_as(TemplateArguments)
-    pipeline_options.view_as(
-        SetupOptions).save_main_session = save_main_session
+    pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     query_input = NestedValueProvider(template_arguments.input, resolve_query_input)
 
