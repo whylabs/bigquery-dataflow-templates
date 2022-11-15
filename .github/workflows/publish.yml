@@ -3,9 +3,6 @@ name: Workflow
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: "*"
-
 
 env:
   DOC_DIR: build/dokka/html/
