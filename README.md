@@ -21,3 +21,9 @@ Here are the setup instructions under Ubuntu/WSL.
 - Explicitly set python version: `poetry env use $(which python)`
 - Install dependencies and generate a local virtual env for IDE/tooling: `poetry install`
 
+
+
+
+
+# TODO
+- Reading from queries is apparently a lot slower than reading an entire table (of comparable size). Will need to have a separate job for backfill/historical data that uses table reads potentially.
