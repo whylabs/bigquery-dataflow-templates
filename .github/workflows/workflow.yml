@@ -44,10 +44,10 @@ jobs:
       - name: Setup
         run: make setup 
 
-      - name: Upload metadata to GCS
-        run: poetry run make profile_query_template
+      - name: Upload template to GCS
+        run: poetry run make profile_query_template SHA=${{github.sha}}
 
-      - name: Upload metadata to GCS as 'latest'
+      - name: Upload template to GCS as 'latest'
         run: poetry run make profile_query_template_latest
 
 
