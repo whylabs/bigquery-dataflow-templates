@@ -8,7 +8,7 @@ SHA=$(shell git rev-parse HEAD)
 
 # TODO make sure to version the different templates, probably with a latest version_metadata
 
-.PHONY: default profile_query_template profile_query_template_matadata help upload_template profile_query_template_latest
+.PHONY: default profile_query_template profile_query_template_matadata help upload_template profile_query_template_latest setup
 
 default:help
 
@@ -41,6 +41,9 @@ version_metadata:
 
 requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --output requirements.txt
+
+setup:
+	poetry install
 
 help: ## Show this help message.
 	@echo 'usage: make [target] ...'
