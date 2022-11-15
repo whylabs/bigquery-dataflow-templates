@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import apache_beam as beam
 import pandas as pd
-from apache_beam.io import WriteToText
+from apache_beam.io import WriteToText, ReadFromBigQuery
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 from apache_beam.options.value_provider import (NestedValueProvider,
                                                 RuntimeValueProvider)
@@ -266,8 +266,7 @@ BatchConverter.register(ProfileIndexBatchConverter)
 def run(argv=None, save_main_session=True):
     pipeline_options = PipelineOptions()
     template_arguments = pipeline_options.view_as(TemplateArguments)
-    pipeline_options.view_as(
-        SetupOptions).save_main_session = save_main_session
+    pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     query_input = NestedValueProvider(template_arguments.input, resolve_query_input)
 
@@ -284,7 +283,9 @@ def run(argv=None, save_main_session=True):
         # The main pipeline
         result = (
             p
-            | 'ReadTable' >> beam.io.ReadFromBigQuery(query=query_input, use_standard_sql=True)
+            | 'ReadTable' >> ReadFromBigQuery(query=query_input,
+                                              use_standard_sql=True,
+                                              method=ReadFromBigQuery.Method.DIRECT_READ)
             .with_output_types(Dict[str, Any])
             | 'Profile' >> beam.ParDo(ProfileDoFn(args))
             | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))

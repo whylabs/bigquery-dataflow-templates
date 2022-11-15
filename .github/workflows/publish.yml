@@ -1,0 +1,50 @@
+name: Workflow
+
+on:
+  push:
+    branches: [ "master" ]
+
+env:
+  DOC_DIR: build/dokka/html/
+
+jobs:
+  publish_templates:
+    name: Push the latest versions of the templates to GCS
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    container:
+      image: google/cloud-sdk
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
+        name: 'Authenticate to Google Cloud'
+        with:
+          workload_identity_provider: 'projects/205017367875/locations/global/workloadIdentityPools/github-ci/providers/dataflow-templates-ci'
+          service_account: 'dataflow-template-github-ci@whylogs-359820.iam.gserviceaccount.com'
+
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: 1.2.2 
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8' 
+
+      - name: Setup
+        run: make setup 
+
+      - name: Upload template to GCS
+        run: poetry run make profile_query_template SHA=${{github.sha}}
+
+      - name: Upload template to GCS as 'latest'
+        run: poetry run make profile_query_template_latest
+
+
