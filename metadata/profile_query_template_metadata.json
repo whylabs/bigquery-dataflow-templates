@@ -1,0 +1,54 @@
+{
+  "name": "Profile Query Template",
+  "description": "Convert a BigQuery query into a collection of whylogs dataset profiles.",
+  "parameters": [
+    {
+      "regexes": [
+        "^gs:\\/\\/[^\\n\\r]+$"
+      ],
+      "name": "output",
+      "helpText": "If this is gs://bucket/my_job then a file will be created for each dataset profile generated of the form gs://bucket/my_job-0001-of-0002.bin.",
+      "label": "Output GCS path."
+    },
+    {
+      "name": "input",
+      "helpText": "This a SQL query that includes a table name in the FROM. For example, select a particular day to generate a profile for: 'select * from `my_project.hacker_news.comments` where extract(year from time_ts) = 2009 and extract(month from time_ts) = 1 and extract(day from time_ts) = 1'.",
+      "label": "BigQuery Query"
+    },
+    {
+      "name": "date_column",
+      "helpText": "The string name of the column that contains a datetime. The column should be of type TIMESTAMP in the SQL schema.",
+      "label": "Date column"
+    },
+    {
+      "regexes": [
+        "^(INFO|DEBUG|WARN|WARNING|ERROR|FATAL|CRITICAL)$"
+      ],
+      "name": "logging_level",
+      "helpText": "One of the logging levels from the logging module: DEBUG, INFO, WARN, ERROR, etc.",
+      "label": "Python logging level to use.",
+      "isOptional": true
+    },
+    {
+      "name": "date_grouping_frequency",
+      "helpText": "One of the freq options in the pandas Grouper(freq=) API. D for daily, H for hourly, etc.",
+      "label": "Pandas Grouper frequency.",
+      "isOptional": true 
+    },
+    {
+      "name": "org_id",
+      "helpText": "The WhyLabs organization id to write the dataset profiles to.",
+      "label": "Organization ID"
+    },
+    {
+      "name": "dataset_id",
+      "helpText": "The WhyLabs model id to write the dataset profiles to. Must be in the provided organization.",
+      "label": "Model ID"
+    },
+    {
+      "name": "api_key",
+      "helpText": "An api key for the WhyLabs organization. This can be generated from the Settings menu of your WhyLabs account.",
+      "label": "API Key"
+    }
+  ]
+}
