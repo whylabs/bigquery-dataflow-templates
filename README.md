@@ -23,7 +23,7 @@ Here are the setup instructions under Ubuntu/WSL.
 
 
 # Manual Testing
-Sign off should include manual testing until CI is set up to trigger Dataflow jobs. This involves creating a Dataflow job using the "Custom" template optoin, and entering `whylabs-dataflow-templates/profile_query_flex_template/<SHA>/profile_query_flex_template.json` for the template, replacing `SHA` with the most recent git sha. You can also get the sha from the build logs by checking out the `Upload template to GCS` step's commands.
+Sign off should include manual testing until CI is set up to trigger Dataflow jobs. This involves creating a Dataflow job using the "Custom" template optoin, and entering `whylabs-dataflow-templates/profile_query_template/latest/profile_query_template.json` for the template, replacing `SHA` with the most recent git sha. You can also get the sha from the build logs by checking out the `Upload template to GCS` step's commands.
 
 Some sample arguments to use to launch the template:
 - Output: gs://whylabs-dataflow-templates-tests/testing
