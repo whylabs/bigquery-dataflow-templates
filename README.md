@@ -27,3 +27,4 @@ Here are the setup instructions under Ubuntu/WSL.
 
 # TODO
 - Reading from queries is apparently a lot slower than reading an entire table (of comparable size). Will need to have a separate job for backfill/historical data that uses table reads potentially.
+

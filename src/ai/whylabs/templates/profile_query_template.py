@@ -1,14 +1,13 @@
 import logging
+import argparse
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 
 import apache_beam as beam
 import pandas as pd
 from apache_beam.io import WriteToText, ReadFromBigQuery
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
-from apache_beam.options.value_provider import (NestedValueProvider,
-                                                RuntimeValueProvider)
 from apache_beam.typehints.batch import BatchConverter, ListBatchConverter
 from whylogs.core import DatasetProfile, DatasetProfileView
 
@@ -17,13 +16,15 @@ table_ref_regex = re.compile(r'[^:\.]+:[^:\.]+\.[^:\.]+')
 
 
 @dataclass
-class RuntimeValues():
-    org_id: RuntimeValueProvider
-    api_key: RuntimeValueProvider
-    dataset_id: RuntimeValueProvider
-    logging_level: RuntimeValueProvider
-    date_column: RuntimeValueProvider
-    date_grouping_frequency: RuntimeValueProvider
+class TemplateArgs():
+    org_id: str
+    output: str
+    input: str
+    api_key: str
+    dataset_id: str
+    logging_level: str
+    date_column: str
+    date_grouping_frequency: str
 
 
 class ProfileIndex():
@@ -94,12 +95,12 @@ class ProfileIndex():
 
 
 class WhylogsProfileIndexMerger(beam.CombineFn):
-    def __init__(self, args: RuntimeValues):
+    def __init__(self, args: TemplateArgs):
         self.logger = logging.getLogger("WhylogsProfileIndexMerger")
         self.logging_level = args.logging_level
 
     def setup(self):
-        self.logger.setLevel(logging.getLevelName(self.logging_level.get()))
+        self.logger.setLevel(logging.getLevelName(self.logging_level))
 
     def create_accumulator(self) -> ProfileIndex:
         return ProfileIndex()
@@ -129,31 +130,31 @@ class WhylogsProfileIndexMerger(beam.CombineFn):
 
 
 class UploadToWhylabsFn(beam.DoFn):
-    def __init__(self, args: RuntimeValues):
+    def __init__(self, args: TemplateArgs):
         self.args = args
         self.logger = logging.getLogger("UploadToWhylabsFn")
 
     def setup(self):
-        self.logger.setLevel(logging.getLevelName(self.args.logging_level.get()))
+        self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
     def process_batch(self, batch: List[ProfileIndex]) -> Iterator[List[ProfileIndex]]:
         for index in batch:
             index.upload_to_whylabs(self.logger,
-                                    self.args.org_id.get(),
-                                    self.args.api_key.get(),
-                                    self.args.dataset_id.get())
+                                    self.args.org_id,
+                                    self.args.api_key,
+                                    self.args.dataset_id)
         yield batch
 
 
 class ProfileDoFn(beam.DoFn):
-    def __init__(self, args: RuntimeValues):
-        self.date_column: RuntimeValueProvider = args.date_column
-        self.freq: RuntimeValueProvider = args.date_grouping_frequency
+    def __init__(self, args: TemplateArgs):
+        self.date_column = args.date_column
+        self.freq = args.date_grouping_frequency
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileDoFn")
 
     def setup(self):
-        self.logger.setLevel(logging.getLevelName(self.logging_level.get()))
+        self.logger.setLevel(logging.getLevelName(self.logging_level))
 
     def _process_batch_without_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[DatasetProfileView]]:
         self.logger.debug("Processing batch of size %s", len(batch))
@@ -164,9 +165,8 @@ class ProfileDoFn(beam.DoFn):
     def _process_batch_with_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
         tmp_date_col = '_whylogs_datetime'
         df = pd.DataFrame(batch)
-        df[tmp_date_col] = pd.to_datetime(df[self.date_column.get()])
-        grouped = df.set_index(tmp_date_col).groupby(
-            pd.Grouper(freq=self.freq.get()))
+        df[tmp_date_col] = pd.to_datetime(df[self.date_column])
+        grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
         profiles = ProfileIndex()
         for date_group, dataframe in grouped:
@@ -188,45 +188,6 @@ class ProfileDoFn(beam.DoFn):
 
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
         return self._process_batch_with_date(batch)
-
-
-class TemplateArguments(PipelineOptions):
-    @classmethod
-    def _add_argparse_args(cls, parser):
-        parser.add_value_provider_argument(
-            '--output',
-            dest='output',
-            help='Output file or gs:// path to write results to.')
-        parser.add_value_provider_argument(
-            '--input',
-            dest='input',
-            help='This can be a SQL query that includes a table name or a fully qualified reference to a table with the form PROJECT:DATASET.TABLE')
-        parser.add_value_provider_argument(
-            '--date_column',
-            dest='date_column',
-            help='The string name of the column that contains a datetime. The column should be of type TIMESTAMP in the SQL schema.')
-        parser.add_value_provider_argument(
-            '--date_grouping_frequency',
-            dest='date_grouping_frequency',
-            default='D',
-            help='One of the freq options in the pandas Grouper(freq=) API. D for daily, W for weekly, etc.')
-        parser.add_value_provider_argument(
-            '--logging_level',
-            dest='logging_level',
-            default='INFO',
-            help='One of the logging levels from the logging module.')
-        parser.add_value_provider_argument(
-            '--org_id',
-            dest='org_id',
-            help='The WhyLabs organization id to write the result profiles to.')
-        parser.add_value_provider_argument(
-            '--dataset_id',
-            dest='dataset_id',
-            help='The WhyLabs model id id to write the result profiles to. Must be in the provided organization.')
-        parser.add_value_provider_argument(
-            '--api_key',
-            dest='api_key',
-            help='An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.')
 
 
 def is_table_input(table_string: str) -> bool:
@@ -264,26 +225,68 @@ BatchConverter.register(ProfileIndexBatchConverter)
 
 
 def run(argv=None, save_main_session=True):
-    pipeline_options = PipelineOptions()
-    template_arguments = pipeline_options.view_as(TemplateArguments)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--output',
+        dest='output',
+        required=True,
+        help='Output file or gs:// path to write results to.')
+    parser.add_argument(
+        '--input',
+        dest='input',
+        required=True,
+        help='This can be a SQL query that includes a table name or a fully qualified reference to a table with the form PROJECT:DATASET.TABLE')
+    parser.add_argument(
+        '--date_column',
+        dest='date_column',
+        required=True,
+        help='The string name of the column that contains a datetime. The column should be of type TIMESTAMP in the SQL schema.')
+    parser.add_argument(
+        '--date_grouping_frequency',
+        dest='date_grouping_frequency',
+        default='D',
+        help='One of the freq options in the pandas Grouper(freq=) API. D for daily, W for weekly, etc.')
+    parser.add_argument(
+        '--logging_level',
+        dest='logging_level',
+        default='INFO',
+        help='One of the logging levels from the logging module.')
+    parser.add_argument(
+        '--org_id',
+        dest='org_id',
+        required=True,
+        help='The WhyLabs organization id to write the result profiles to.')
+    parser.add_argument(
+        '--dataset_id',
+        dest='dataset_id',
+        required=True,
+        help='The WhyLabs model id id to write the result profiles to. Must be in the provided organization.')
+    parser.add_argument(
+        '--api_key',
+        dest='api_key',
+        required=True,
+        help='An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.')
+
+    known_args, pipeline_args = parser.parse_known_args(argv)
+    pipeline_options = PipelineOptions(pipeline_args)
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
-    query_input = NestedValueProvider(template_arguments.input, resolve_query_input)
+    args = TemplateArgs(
+        api_key=known_args.api_key,
+        output=known_args.output,
+        input=known_args.input,
+        dataset_id=known_args.dataset_id,
+        org_id=known_args.org_id,
+        logging_level=known_args.logging_level,
+        date_column=known_args.date_column,
+        date_grouping_frequency=known_args.date_grouping_frequency)
 
     with beam.Pipeline(options=pipeline_options) as p:
-
-        args = RuntimeValues(
-            api_key=template_arguments.api_key,
-            dataset_id=template_arguments.dataset_id,
-            org_id=template_arguments.org_id,
-            logging_level=template_arguments.logging_level,
-            date_column=template_arguments.date_column,
-            date_grouping_frequency=template_arguments.date_grouping_frequency)
 
         # The main pipeline
         result = (
             p
-            | 'ReadTable' >> ReadFromBigQuery(query=query_input,
+            | 'ReadTable' >> ReadFromBigQuery(query=args.input,
                                               use_standard_sql=True,
                                               method=ReadFromBigQuery.Method.DIRECT_READ)
             .with_output_types(Dict[str, Any])
@@ -302,7 +305,7 @@ def run(argv=None, save_main_session=True):
          | 'Serialize Proflies' >> beam.ParDo(serialize_index)
             .with_input_types(ProfileIndex)
             .with_output_types(bytes)
-         | 'Upload to GCS' >> WriteToText(template_arguments.output,
+         | 'Upload to GCS' >> WriteToText(args.output,
                                           max_records_per_shard=1,
                                           file_name_suffix=".bin")
          )

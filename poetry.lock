@@ -166,7 +166,7 @@ python-versions = "*"
 
 [[package]]
 name = "exceptiongroup"
-version = "1.0.1"
+version = "1.0.4"
 description = "Backport of PEP 654 (exception groups)"
 category = "dev"
 optional = false
@@ -385,7 +385,7 @@ protobuf = "<4.0.0dev"
 
 [[package]]
 name = "google-cloud-pubsub"
-version = "2.13.10"
+version = "2.13.11"
 description = "Google Cloud Pub/Sub API client library"
 category = "main"
 optional = false
@@ -500,18 +500,18 @@ requests = ["requests (>=2.18.0,<3.0.0dev)"]
 
 [[package]]
 name = "googleapis-common-protos"
-version = "1.56.4"
+version = "1.57.0"
 description = "Common protobufs used in Google APIs"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
-grpcio = {version = ">=1.0.0,<2.0.0dev", optional = true, markers = "extra == \"grpc\""}
-protobuf = ">=3.15.0,<5.0.0dev"
+grpcio = {version = ">=1.44.0,<2.0.0dev", optional = true, markers = "extra == \"grpc\""}
+protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<5.0.0dev"
 
 [package.extras]
-grpc = ["grpcio (>=1.0.0,<2.0.0dev)"]
+grpc = ["grpcio (>=1.44.0,<2.0.0dev)"]
 
 [[package]]
 name = "grpc-google-iam-v1"
@@ -951,7 +951,7 @@ urllib3 = ">=1.25.3"
 
 [[package]]
 name = "whylogs"
-version = "1.1.11"
+version = "1.1.13"
 description = "Profile and monitor your ML data pipeline end-to-end"
 category = "main"
 optional = false
@@ -1001,7 +1001,7 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d3520fce6ea79aa914b8cb6888420a83efb1b3b50e53f12aeb26854174bc3bc0"
+content-hash = "99b0a62e33307c5798a95a85a76acdfc578ad1590bb51c87919df7b42c7b9664"
 
 [metadata.files]
 apache-beam = [
@@ -1135,8 +1135,8 @@ docopt = [
     {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
 ]
 exceptiongroup = [
-    {file = "exceptiongroup-1.0.1-py3-none-any.whl", hash = "sha256:4d6c0aa6dd825810941c792f53d7b8d71da26f5e5f84f20f9508e8f2d33b140a"},
-    {file = "exceptiongroup-1.0.1.tar.gz", hash = "sha256:73866f7f842ede6cb1daa42c4af078e2035e5f7607f0e2c762cc51bb31bbe7b2"},
+    {file = "exceptiongroup-1.0.4-py3-none-any.whl", hash = "sha256:542adf9dea4055530d6e1279602fa5cb11dab2395fa650b8674eaec35fc4a828"},
+    {file = "exceptiongroup-1.0.4.tar.gz", hash = "sha256:bd14967b79cd9bdb54d97323216f8fdf533e278df937aa2a90089e7d6e06e5ec"},
 ]
 fastavro = [
     {file = "fastavro-1.7.0-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:ab3387a06e272980fa034f5c62f7063977b77df6416d3d30a4d3b49cc8827566"},
@@ -1210,8 +1210,8 @@ google-cloud-language = [
     {file = "google_cloud_language-1.3.2-py2.py3-none-any.whl", hash = "sha256:279ad7116a546c04fad80abb99a0fc7581a6548e54cf4e83c50657716fb33306"},
 ]
 google-cloud-pubsub = [
-    {file = "google-cloud-pubsub-2.13.10.tar.gz", hash = "sha256:3e746a1a97c96bdc63fc5499529ed7262f1464f6de8c8bae6238c12200919ac0"},
-    {file = "google_cloud_pubsub-2.13.10-py2.py3-none-any.whl", hash = "sha256:1a29795265ddb2eff23b4e4c2c4594a56f5a861827fe1cc72c53de42a3a13def"},
+    {file = "google-cloud-pubsub-2.13.11.tar.gz", hash = "sha256:085878ecfbb3991fea6af3a011aa2dd9f5415d19c760d0de9a58524d2aa1bade"},
+    {file = "google_cloud_pubsub-2.13.11-py2.py3-none-any.whl", hash = "sha256:eed338c3f4ec9cb162145188f4ff2561c7919d2e4106973eff893331d1ac5940"},
 ]
 google-cloud-pubsublite = [
     {file = "google-cloud-pubsublite-1.6.0.tar.gz", hash = "sha256:47b028f62cee51a0c7f8e6f1791a20546f968fd832a83a9128cd8ffa33413c11"},
@@ -1308,8 +1308,8 @@ google-resumable-media = [
     {file = "google_resumable_media-1.3.3-py2.py3-none-any.whl", hash = "sha256:092f39153cd67a4e409924edf08129f43cc72e630a1eb22abec93e80155df4ba"},
 ]
 googleapis-common-protos = [
-    {file = "googleapis-common-protos-1.56.4.tar.gz", hash = "sha256:c25873c47279387cfdcbdafa36149887901d36202cb645a0e4f29686bf6e4417"},
-    {file = "googleapis_common_protos-1.56.4-py2.py3-none-any.whl", hash = "sha256:8eb2cbc91b69feaf23e32452a7ae60e791e09967d81d4fcc7fc388182d1bd394"},
+    {file = "googleapis-common-protos-1.57.0.tar.gz", hash = "sha256:27a849d6205838fb6cc3c1c21cb9800707a661bb21c6ce7fb13e99eb1f8a0c46"},
+    {file = "googleapis_common_protos-1.57.0-py2.py3-none-any.whl", hash = "sha256:a9f4a1d7f6d9809657b7f1316a1aa527f6664891531bcfcc13b6696e685f443c"},
 ]
 grpc-google-iam-v1 = [
     {file = "grpc-google-iam-v1-0.12.4.tar.gz", hash = "sha256:3f0ac2c940b9a855d7ce7e31fde28bddb0d9ac362d32d07c67148306931a0e30"},
@@ -1868,8 +1868,8 @@ whylabs-client = [
     {file = "whylabs_client-0.4.0-py3-none-any.whl", hash = "sha256:016151c3a25118a50f2c88675a3754cf8b5ee57196f3d28a2e67a12be1449d65"},
 ]
 whylogs = [
-    {file = "whylogs-1.1.11-py3-none-any.whl", hash = "sha256:d8b7d622667ee95337603bf3499a701dfa02de53aec3a76b5621429772cfac8b"},
-    {file = "whylogs-1.1.11.tar.gz", hash = "sha256:d8769b436092fbd31248578c40c339bdbc63791b8e20f5cc21b4e66a2840e519"},
+    {file = "whylogs-1.1.13-py3-none-any.whl", hash = "sha256:4780640767c0f1e6cecf6384950a99d03b4edcb9bfecfaf81e5302e1bc95cea1"},
+    {file = "whylogs-1.1.13.tar.gz", hash = "sha256:324c15710366ab261dc4d6461bb3a4d069652c5f176668d900a3b0065a189b02"},
 ]
 whylogs-sketching = [
     {file = "whylogs-sketching-3.4.1.dev3.tar.gz", hash = "sha256:40b90eb9d5e4cbbfa63f6a1f3a3332b72258d270044b79030dc5d720fddd9499"},

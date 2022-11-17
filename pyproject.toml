@@ -5,11 +5,11 @@ description = "Templates for use in GCP's Dataflow."
 authors = ["Anthony Naddeo <anthony.naddeo@gmail.com>"]
 license = "Apache-2.0 license"
 readme = "README.md"
-packages = [{include = "ai/**/*.py"}]
+packages = [{include = "src/**/*.py"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-whylogs = {extras = ["whylabs"], version = "^1.1.11"}
+whylogs = {extras = ["whylabs"], version = "^1.1.13"}
 pandas = "^1.5.1"
 apache-beam = {extras = ["gcp"], version = "^2.42.0"}
 
