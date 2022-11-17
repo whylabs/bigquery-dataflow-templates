@@ -22,9 +22,21 @@ Here are the setup instructions under Ubuntu/WSL.
 - Install dependencies and generate a local virtual env for IDE/tooling: `poetry install`
 
 
+# Manual Testing
+Sign off should include manual testing until CI is set up to trigger Dataflow jobs. This involves creating a Dataflow job using the "Custom" template optoin, and entering `whylabs-dataflow-templates/profile_query_flex_template/<SHA>/profile_query_flex_template.json` for the template, replacing `SHA` with the most recent git sha. You can also get the sha from the build logs by checking out the `Upload template to GCS` step's commands.
 
-
+Some sample arguments to use to launch the template:
+- Output: gs://whylabs-dataflow-templates-tests/testing
+- BigQuery Query: ``SELECT * FROM `bigquery-public-data.hacker_news.comments` where EXTRACT(year FROM time_ts) = 2015``
+- Time Column: `time_ts`
+- Org ID: `org-0`
+- Model ID: `model-41i`
+- date_grouping_frequency: `M`
+- API Key: Generate one in WhyLabs
 
 # TODO
 - Reading from queries is apparently a lot slower than reading an entire table (of comparable size). Will need to have a separate job for backfill/historical data that uses table reads potentially.
+- Minimize permissions once GCP identifies the ones that I'm using.
+
+
 
