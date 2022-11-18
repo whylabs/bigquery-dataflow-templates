@@ -34,11 +34,11 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--runner=DataflowRunner \
 		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp3 \
 		--dataset-id=model-42 \
-		--requirements_file=requirements.txt \
-		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
+		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:no-beam \
 		--prebuild_sdk_container_engine=cloud_build \
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
 
+# Note, no --requirements_file. The --sdk_container_image contains the requirements
 profile_query_local_table: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
 		--input-mode=BIGQUERY_TABLE \
@@ -53,8 +53,7 @@ profile_query_local_table: ## Upload the dataflow template that profiles a query
 		--runner=DataflowRunner \
 		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp2 \
 		--dataset-id=model-42 \
-		--requirements_file=requirements.txt \
-		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
+		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:no-beam \
 		--prebuild_sdk_container_engine=cloud_build \
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
 
@@ -77,7 +76,8 @@ version_metadata:
 # TODO see if I can omit apache beam from here and have it still work. Might be a big time saver for startup. It should
 # be present in the container base image
 requirements.txt: pyproject.toml
-	poetry export -f requirements.txt --output requirements.txt
+	@# Filter out apache-beam because they pre-install that on the base images and installing it is time consuming
+	poetry export -f requirements.txt --without-hashes | grep -v apache-beam > requirements.txt
 
 setup:
 	poetry install

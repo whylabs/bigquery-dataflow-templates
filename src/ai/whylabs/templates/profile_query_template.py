@@ -391,7 +391,7 @@ def run():
 
     logger = logging.getLogger("main")
     logger.setLevel(logging.getLevelName(args.logging_level))
-    read_step = get_read_input(args)
+    read_step = get_read_input(args, logger)
 
     with beam.Pipeline(options=pipeline_options.view_as(PipelineOptions)) as p:
 
