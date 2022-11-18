@@ -20,21 +20,44 @@ profile_query_template: VERSION=$(SHA)
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 
-profile_query_local: ## Upload the dataflow template that profiles a query
+profile_query_local_query: ## Upload the dataflow template that profiles a query
+	python src/ai/whylabs/templates/profile_query_template.py \
+		--requirements_file=requirements.txt \
+		--input-mode=BIGQUERY_SQL \
+		--input-bigquery-sql='SELECT * FROM `bigquery-public-data.hacker_news.comments` where EXTRACT(year FROM time_ts) = 2015' \
+		--date-column=time_ts \
+		--date-grouping-frequency=M \
+		--org-id=org-0 \
+		--project=whylogs-359820 \
+		--region=us-central1 \
+		--output=gs://whylabs-dataflow-templates-tests/table-query/profile \
+		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
+		--runner=DataflowRunner \
+		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp3 \
+		--dataset-id=mode-42 \
+		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
+		--prebuild_sdk_container_engine=cloud_build \
+		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
+
+profile_query_local_table: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
 		--requirements_file=requirements.txt \
 		--input-mode=BIGQUERY_TABLE \
-		--input-bigquery-table=bigquery-public-data.hacker_news.comments \
+		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
 		--date-column=time_ts \
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
-		--region=us-central1 \
-		--output=gs://whylabs-dataflow-templates-tests/table-input/profile \
+		--region=us-west1 \
+		--output=gs://whylabs-dataflow-templates-tests/table-read/profile \
 		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
-		--runner=DirectRunner\
-		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp \
-		--dataset-id=mode-42
+		--runner=DataflowRunner \
+		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp2 \
+		--dataset-id=mode-42 \
+		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
+		--prebuild_sdk_container_engine=cloud_build \
+		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
+
 
 upload_template: requirements.txt # Base target for other targets to use. Set the NAME, VERSION
 	gcloud dataflow flex-template build $(TEMPLATE_LOCATION)/$(VERSION)/$(NAME).json \
