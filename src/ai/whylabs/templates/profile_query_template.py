@@ -232,72 +232,9 @@ class ProfileIndexBatchConverter(ListBatchConverter):
 
 BatchConverter.register(ProfileIndexBatchConverter)
 
-
-def run(argv=None):
-    parser = argparse.ArgumentParser()
-
-    class InputMode(Enum):
-        BIGQUERY_SQL = 1
-        BIGQUERY_TABLE = 2
-        OFFSET = 3
-
-
-    @dataclass
-    class InputBigQuerySQL():
-        query: str
-
-
-    @dataclass
-    class InputBigQueryTable():
-        table_spec: str
-
-
-    @dataclass
-    class InputOffset():
-        offset: int
-        table_spec: str
-        timezone: tzinfo
-
-
-    def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
-        if (args.input_mode == InputMode.BIGQUERY_SQL.name):
-            if (args.input_bigquery_sql is None):
-                raise Exception(
-                    f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {InputMode.BIGQUERY_SQL.name}")
-            return InputBigQuerySQL(query=args.input_bigquery_sql)
-
-        elif (args.input_mode == InputMode.BIGQUERY_TABLE.name):
-            if (args.input_bigquery_table is None):
-                raise Exception(
-                    f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {InputMode.BIGQUERY_TABLE.name}")
-            return InputBigQueryTable(table_spec=args.input_bigquery_table)
-        elif (args.input_mode == InputMode.OFFSET.name):
-            if (args.input_offset is None):
-                raise Exception(
-                    f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {InputMode.OFFSET.name}. See TODO for more information on how this is used.")
-
-            if (args.input_offset_table is None):
-                raise Exception(
-                    f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {InputMode.OFFSET.name}.")
-
-            if (args.input_offset_timezone is None):
-                raise Exception(
-                    f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {InputMode.OFFSET.name}.")
-
-            timezone = tz.gettz(args.input_offset_timezone)
-            if (timezone is None):
-                raise Exception(f"Couldn't look up timezone {args.input_offset_timezone}")
-
-            if (args.date_grouping_frequency != 'D'):
-                raise Exception(f"Offset mode only supports daily offsets right now.")
-
-            return InputOffset(offset=int(args.input_offset), table_spec=args.input_offset_table, timezone=timezone)
-
-        else:
-            raise Exception(f"Unknown input_mode {args.input_mode}")
-
-
-    def add_arguments(parser: argparse.ArgumentParser):
+class Options(PipelineOptions):
+    @classmethod
+    def _add_argparse_args(cls, parser):
         parser.add_argument(
             '--input-mode',
             dest='input_mode',
@@ -365,27 +302,82 @@ def run(argv=None):
             required=True,
             help='Output file or gs:// path to write results to.')
 
+def run():
+    class InputMode(Enum):
+        BIGQUERY_SQL = 1
+        BIGQUERY_TABLE = 2
+        OFFSET = 3
 
-    add_arguments(parser)
+    @dataclass
+    class InputBigQuerySQL():
+        query: str
 
-    known_args, pipeline_args = parser.parse_known_args(argv)
-    pipeline_options = PipelineOptions(pipeline_args)
+    @dataclass
+    class InputBigQueryTable():
+        table_spec: str
+
+    @dataclass
+    class InputOffset():
+        offset: int
+        table_spec: str
+        timezone: tzinfo
+
+    def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
+        if (args.input_mode == InputMode.BIGQUERY_SQL.name):
+            if (args.input_bigquery_sql is None):
+                raise Exception(
+                    f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {InputMode.BIGQUERY_SQL.name}")
+            return InputBigQuerySQL(query=args.input_bigquery_sql)
+
+        elif (args.input_mode == InputMode.BIGQUERY_TABLE.name):
+            if (args.input_bigquery_table is None):
+                raise Exception(
+                    f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {InputMode.BIGQUERY_TABLE.name}")
+            return InputBigQueryTable(table_spec=args.input_bigquery_table)
+        elif (args.input_mode == InputMode.OFFSET.name):
+            if (args.input_offset is None):
+                raise Exception(
+                    f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {InputMode.OFFSET.name}. See TODO for more information on how this is used.")
+
+            if (args.input_offset_table is None):
+                raise Exception(
+                    f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {InputMode.OFFSET.name}.")
+
+            if (args.input_offset_timezone is None):
+                raise Exception(
+                    f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {InputMode.OFFSET.name}.")
+
+            timezone = tz.gettz(args.input_offset_timezone)
+            if (timezone is None):
+                raise Exception(f"Couldn't look up timezone {args.input_offset_timezone}")
+
+            if (args.date_grouping_frequency != 'D'):
+                raise Exception(f"Offset mode only supports daily offsets right now.")
+
+            return InputOffset(offset=int(args.input_offset), table_spec=args.input_offset_table, timezone=timezone)
+
+        else:
+            raise Exception(f"Unknown input_mode {args.input_mode}")
+
+
+    # known_args, pipeline_args = parser.parse_known_args(argv)
+    pipeline_options = Options()
     pipeline_options.view_as(SetupOptions).save_main_session = True
 
     args = TemplateArgs(
-        input_mode=known_args.input_mode,
-        input_bigquery_sql=known_args.input_bigquery_sql,
-        input_bigquery_table=known_args.input_bigquery_table,
-        input_offset=known_args.input_offset,
-        input_offset_table=known_args.input_offset_table,
-        input_offset_timezone=known_args.input_offset_timezone,
-        api_key=known_args.api_key,
-        output=known_args.output,
-        dataset_id=known_args.dataset_id,
-        org_id=known_args.org_id,
-        logging_level=known_args.logging_level,
-        date_column=known_args.date_column,
-        date_grouping_frequency=known_args.date_grouping_frequency)
+        input_mode=pipeline_options.input_mode,
+        input_bigquery_sql=pipeline_options.input_bigquery_sql,
+        input_bigquery_table=pipeline_options.input_bigquery_table,
+        input_offset=pipeline_options.input_offset,
+        input_offset_table=pipeline_options.input_offset_table,
+        input_offset_timezone=pipeline_options.input_offset_timezone,
+        api_key=pipeline_options.api_key,
+        output=pipeline_options.output,
+        dataset_id=pipeline_options.dataset_id,
+        org_id=pipeline_options.org_id,
+        logging_level=pipeline_options.logging_level,
+        date_column=pipeline_options.date_column,
+        date_grouping_frequency=pipeline_options.date_grouping_frequency)
 
     logger = logging.getLogger("main")
     logger.setLevel(logging.getLevelName(args.logging_level))
