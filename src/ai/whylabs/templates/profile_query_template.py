@@ -1,5 +1,4 @@
 import argparse
-from apache_beam.io import ReadFromBigQuery, WriteToText
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
@@ -7,6 +6,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import apache_beam as beam
 import pandas as pd
+from apache_beam.io import ReadFromBigQuery, WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 from apache_beam.typehints.batch import BatchConverter, ListBatchConverter
 from dateutil import tz
@@ -278,6 +278,28 @@ def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputB
         raise Exception(f"Unknown input_mode {args.input_mode}")
 
 
+def get_read_input(args: TemplateArgs, logger: logging.Logger):
+    input = get_input(args)
+
+    if (isinstance(input, InputBigQuerySQL)):
+        logger.info('Using bigquery query %s', input.query)
+        return ReadFromBigQuery(query=input.query, use_standard_sql=True)
+    elif (isinstance(input, InputBigQueryTable)):
+        logger.info('Using bigquery table %s', input.table_spec)
+        return ReadFromBigQuery(table=input.table_spec)
+    elif (isinstance(input, InputOffset)):
+        today = datetime.utcnow().date()
+        start = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).astimezone(input.timezone)
+        end = start + timedelta(1)
+
+        query = f"SELECT * from `{input.table_spec}` where EXTRACT(DAY from {args.date_column}) = {end.day} AND EXTRACT(YEAR from {args.date_column}) = {end.year} AND EXTRACT(MONTH from {args.date_column}) = {end.month}"
+        logger.info("Using offset query %s", query)
+        return ReadFromBigQuery(query=query, use_standard_sql=True)
+    else:
+        # Can't happen unless we forget to check for a type of Input. Should be able to configure mypy to do this for us.
+        raise Exception(f"Can't determine how to read data: {type(input)}")
+
+
 def run():
     parser = argparse.ArgumentParser()
 
@@ -369,28 +391,9 @@ def run():
 
     logger = logging.getLogger("main")
     logger.setLevel(logging.getLevelName(args.logging_level))
+    read_step = get_read_input(args)
 
-    input = get_input(args)
-
-    if (isinstance(input, InputBigQuerySQL)):
-        read_step = ReadFromBigQuery(query=input.query, use_standard_sql=True)
-        logger.info('Using bigquery query %s', input.query)
-    elif (isinstance(input, InputBigQueryTable)):
-        read_step = ReadFromBigQuery(table=input.table_spec)
-        logger.info('Using bigquery table %s', input.table_spec)
-    elif (isinstance(input, InputOffset)):
-        today = datetime.utcnow().date()
-        start = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).astimezone(input.timezone)
-        end = start + timedelta(1)
-
-        query = f"SELECT * from `{input.table_spec}` where EXTRACT(DAY from {args.date_column}) = {end.day} AND EXTRACT(YEAR from {args.date_column}) = {end.year} AND EXTRACT(MONTH from {args.date_column}) = {end.month}"
-        read_step = ReadFromBigQuery(query=query, use_standard_sql=True)
-        logger.info("Using offset query %s", query)
-    else:
-        # Can't happen unless we forget to check for a type of Input. Should be able to configure mypy to do this for us.
-        raise Exception(f"Can't determine how to read data: {type(input)}")
-
-    with beam.Pipeline(options=pipeline_options) as p:
+    with beam.Pipeline(options=pipeline_options.view_as(PipelineOptions)) as p:
 
         # The main pipeline
         result = (

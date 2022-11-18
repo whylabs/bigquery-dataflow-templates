@@ -22,7 +22,6 @@ profile_query_template: upload_template version_metadata ## Upload the dataflow 
 
 profile_query_local_query: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
-		--requirements_file=requirements.txt \
 		--input-mode=BIGQUERY_SQL \
 		--input-bigquery-sql='SELECT * FROM `bigquery-public-data.hacker_news.comments` where EXTRACT(year FROM time_ts) = 2015' \
 		--date-column=time_ts \
@@ -34,14 +33,14 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
 		--runner=DataflowRunner \
 		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp3 \
-		--dataset-id=mode-42 \
+		--dataset-id=model-42 \
+		--requirements_file=requirements.txt \
 		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
 		--prebuild_sdk_container_engine=cloud_build \
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
 
 profile_query_local_table: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
-		--requirements_file=requirements.txt \
 		--input-mode=BIGQUERY_TABLE \
 		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
 		--date-column=time_ts \
@@ -53,7 +52,8 @@ profile_query_local_table: ## Upload the dataflow template that profiles a query
 		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
 		--runner=DataflowRunner \
 		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp2 \
-		--dataset-id=mode-42 \
+		--dataset-id=model-42 \
+		--requirements_file=requirements.txt \
 		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:latest \
 		--prebuild_sdk_container_engine=cloud_build \
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
@@ -74,6 +74,8 @@ version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
 	gcloud storage cp /tmp/version_$(SHA).sha $(TEMPLATE_LOCATION)/$(VERSION)/version.sha
 
+# TODO see if I can omit apache beam from here and have it still work. Might be a big time saver for startup. It should
+# be present in the container base image
 requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --output requirements.txt
 
