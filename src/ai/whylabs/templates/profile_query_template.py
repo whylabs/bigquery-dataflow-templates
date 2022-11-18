@@ -241,19 +241,23 @@ def run(argv=None):
         BIGQUERY_TABLE = 2
         OFFSET = 3
 
+
     @dataclass
     class InputBigQuerySQL():
         query: str
 
+
     @dataclass
     class InputBigQueryTable():
         table_spec: str
+
 
     @dataclass
     class InputOffset():
         offset: int
         table_spec: str
         timezone: tzinfo
+
 
     def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
         if (args.input_mode == InputMode.BIGQUERY_SQL.name):
@@ -291,6 +295,7 @@ def run(argv=None):
 
         else:
             raise Exception(f"Unknown input_mode {args.input_mode}")
+
 
     def add_arguments(parser: argparse.ArgumentParser):
         parser.add_argument(
@@ -359,6 +364,7 @@ def run(argv=None):
             dest='output',
             required=True,
             help='Output file or gs:// path to write results to.')
+
 
     add_arguments(parser)
 
