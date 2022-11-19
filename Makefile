@@ -30,9 +30,8 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--project=whylogs-359820 \
 		--region=us-central1 \
 		--output=gs://whylabs-dataflow-templates-tests/table-query/profile \
-		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
+		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp3 \
 		--dataset-id=model-42 \
 		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:no-beam \
 		--prebuild_sdk_container_engine=cloud_build \
@@ -49,13 +48,29 @@ profile_query_local_table: ## Upload the dataflow template that profiles a query
 		--project=whylogs-359820 \
 		--region=us-west1 \
 		--output=gs://whylabs-dataflow-templates-tests/table-read/profile \
-		--api-key=NZWWBkWOmo.tDm9YOpoRFKcZeAGDrV6wR5bkZoWeu4bQapavHaGI3Wo95EIvkZjt \
+		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--temp_location=gs://dataflow-staging-us-central1-205017367875/tmp2 \
 		--dataset-id=model-42 \
 		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:no-beam \
 		--prebuild_sdk_container_engine=cloud_build \
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
+
+
+# TODO how to make this benefit from prebuild? Or does it already do that by default?
+run_template: SHA=latest
+run_template: ## Run the dataflow template for the given SHA. Can manually set SHA=latest as well with make run_template SHA=latest or some git sha.
+	gcloud dataflow flex-template run "$(NAME)" \
+		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
+		--parameters input-mode=BIGQUERY_SQL \
+		--parameters input-bigquery-sql='SELECT * FROM `bigquery-public-data.hacker_news.comments`' \
+		--parameters date-column=time_ts \
+		--parameters date-grouping-frequency=Y \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region "us-west1" \
+		--num-workers 300
 
 
 upload_template: requirements.txt # Base target for other targets to use. Set the NAME, VERSION
@@ -77,7 +92,7 @@ version_metadata:
 # be present in the container base image
 requirements.txt: pyproject.toml
 	@# Filter out apache-beam because they pre-install that on the base images and installing it is time consuming
-	poetry export -f requirements.txt --without-hashes | grep -v apache-beam > requirements.txt
+	poetry export -f requirements.txt --without-hashes > requirements.txt
 
 setup:
 	poetry install

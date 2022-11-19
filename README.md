@@ -14,6 +14,7 @@ TBD, writing in progress. Reach out to us on [slack](https://whylabs.ai/slack-co
 # Running
 
 ## Flex Template via CLI
+`make run_template`
 
 ## Flex Template via Console
 
@@ -22,6 +23,7 @@ TBD, writing in progress. Reach out to us on [slack](https://whylabs.ai/slack-co
 ## Schedule Flex Template via Console
 
 ## Directly via CLI
+`profile_query_local_query`
 
 
 
