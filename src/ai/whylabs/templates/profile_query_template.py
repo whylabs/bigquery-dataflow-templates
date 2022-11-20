@@ -42,7 +42,7 @@ class ProfileIndex():
     def get(self, date_str: str) -> Optional[DatasetProfileView]:
         return self.index[date_str]
 
-    def set(self, date_str: str, view: DatasetProfileView):
+    def set(self, date_str: str, view: DatasetProfileView) -> None:
         self.index[date_str] = view
 
     def tuples(self) -> List[Tuple[str, DatasetProfileView]]:
@@ -55,7 +55,7 @@ class ProfileIndex():
 
         return self
 
-    def merge(self, date_str: str, view: DatasetProfileView):
+    def merge(self, date_str: str, view: DatasetProfileView) -> None:
         if date_str in self.index:
             self.index[date_str] = self.index[date_str].merge(view)
         else:
@@ -67,15 +67,15 @@ class ProfileIndex():
     def __len__(self) -> int:
         return len(self.index)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[bytes]:
         # The runtime wants to use this to estimate the size of the object,
         # I suppose to load balance across workers.
         return self.extract().values().__iter__()
 
-    def __getstate__(self):
+    def __getstate__(self) -> Dict[str, Any]:
         return self.__dict__
 
-    def __setstate__(self, d):
+    def __setstate__(self, d: Dict[str, Any]) -> None:
         self.__dict__ = d
 
     def upload_to_whylabs(self, logger: logging.Logger, org_id: str, api_key: str, dataset_id: str):
