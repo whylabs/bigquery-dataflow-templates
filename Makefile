@@ -5,7 +5,6 @@ TEMPLATE_LOCATION=$(BUCKET)/$(NAME)
 TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
 SHA=$(shell git rev-parse HEAD)
 
-# TODO make sure to version the different templates, probably with a latest version_metadata
 
 .PHONY: default profile_query_template profile_query_template_matadata help upload_template profile_query_template_latest setup upload_flex_template docker_flex_image
 .PHONY: lint
@@ -24,13 +23,16 @@ profile_query_template: upload_template version_metadata ## Upload the dataflow 
 profile_query_local_query: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
 		--input-mode=BIGQUERY_SQL \
-		--input-bigquery-sql='SELECT * FROM `bigquery-public-data.hacker_news.comments`' \
-		--date-column=time_ts \
+		--input-bigquery-sql='select * from `whylogs-359820.btc_cash.transactions` where EXTRACT(YEAR from block_timestamp) = 2020' \
+		--date-column=fake_time_2 \
 		--date-grouping-frequency=Y \
+		--logging-level=DEBUG \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
 		--region=us-central1 \
-		--output=gs://whylabs-dataflow-templates-tests/table-query/profile \
+		--num_workers=300 \
+		--job_name=$(NAME) \
+		--output=gs://whylabs-dataflow-templates-tests/$(NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \
@@ -55,20 +57,35 @@ profile_query_local_table: ## Upload the dataflow template that profiles a query
 		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
 
 
-# TODO how to make this benefit from prebuild? Or does it already do that by default?
 run_template: SHA=latest
 run_template: ## Run the dataflow template for the given SHA. Can manually set SHA=latest as well with make run_template SHA=latest or some git sha.
 	gcloud dataflow flex-template run "$(NAME)" \
 		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
 		--parameters input-mode=BIGQUERY_SQL \
-		--parameters input-bigquery-sql='SELECT * FROM `bigquery-public-data.hacker_news.comments`' \
-		--parameters date-column=time_ts \
-		--parameters date-grouping-frequency=Y \
+		--parameters input-bigquery-sql='select * from `whylogs-359820.btc_cash.transactions` where EXTRACT(YEAR from block_timestamp) = 2020' \
+		--parameters date-column=fake_time_2 \
+		--parameters date-grouping-frequency=D \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region "us-west1" \
+		--num-workers 300
+
+run_template_offset: SHA=latest
+run_template_offset: ## Run the dataflow template for the given SHA. Can manually set SHA=latest as well with make run_template SHA=latest or some git sha.
+	gcloud dataflow flex-template run "$(NAME)" \
+		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
+		--parameters input-mode=OFFSET \
+		--parameters input-offset=-1 \
+		--parameters logging-level=DEBUG \
+		--parameters input-offset-table=whylogs-359820.btc_cash.transactions \
+		--parameters date-column=fake_time_2 \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region "us-central1" \
 		--num-workers 300
 
 
@@ -103,10 +120,7 @@ version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
 	gcloud storage cp /tmp/version_$(SHA).sha $(TEMPLATE_LOCATION)/$(VERSION)/version.sha
 
-# TODO see if I can omit apache beam from here and have it still work. Might be a big time saver for startup. It should
-# be present in the container base image
 requirements.txt: pyproject.toml
-	@# Filter out apache-beam because they pre-install that on the base images and installing it is time consuming
 	poetry export -f requirements.txt --without-hashes > requirements.txt
 
 lint:
@@ -114,6 +128,9 @@ lint:
 
 setup:
 	poetry install
+
+test:
+	poetry run pytest
 
 help: ## Show this help message.
 	@echo 'usage: make [target] ...'

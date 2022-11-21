@@ -1,4 +1,5 @@
 import argparse
+import time
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
@@ -16,11 +17,12 @@ from whylogs.core import DatasetProfile, DatasetProfileView
 @dataclass
 class TemplateArgs():
     input_mode: str
-    input_bigquery_sql: str
-    input_bigquery_table: str
-    input_offset: str
-    input_offset_table: str
-    input_offset_timezone: str
+    input_bigquery_sql: Optional[str]
+    input_bigquery_table: Optional[str]
+    input_offset: Optional[str]
+    input_offset_today_override: Optional[str]
+    input_offset_table: Optional[str]
+    input_offset_timezone: Optional[str]
     org_id: str
     output: str
     api_key: str
@@ -78,7 +80,7 @@ class ProfileIndex():
     def __setstate__(self, d: Dict[str, Any]) -> None:
         self.__dict__ = d
 
-    def upload_to_whylabs(self, logger: logging.Logger, org_id: str, api_key: str, dataset_id: str):
+    def upload_to_whylabs(self, logger: logging.Logger, org_id: str, api_key: str, dataset_id: str) -> None:
         # TODO ResultSets only have DatasetProfiles, not DatasetProfileViews, I can't use them here.
         #   But then how does this work with spark? How are they writing their profiles there, or do they
         #   just export them and write them externally? If they export the profiles, do they only do that
@@ -102,7 +104,7 @@ class WhylogsProfileIndexMerger(beam.CombineFn):
         self.logger = logging.getLogger("WhylogsProfileIndexMerger")
         self.logging_level = args.logging_level
 
-    def setup(self):
+    def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
 
     def create_accumulator(self) -> ProfileIndex:
@@ -137,7 +139,7 @@ class UploadToWhylabsFn(beam.DoFn):
         self.args = args
         self.logger = logging.getLogger("UploadToWhylabsFn")
 
-    def setup(self):
+    def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
     def process_batch(self, batch: List[ProfileIndex]) -> Iterator[List[ProfileIndex]]:
@@ -156,7 +158,7 @@ class ProfileDoFn(beam.DoFn):
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileDoFn")
 
-    def setup(self):
+    def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
 
     def _process_batch_without_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[DatasetProfileView]]:
@@ -166,6 +168,7 @@ class ProfileDoFn(beam.DoFn):
         yield [profile.view()]
 
     def _process_batch_with_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
+        start_time = time.perf_counter()
         tmp_date_col = '_whylogs_datetime'
         df = pd.DataFrame(batch)
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
@@ -174,7 +177,7 @@ class ProfileDoFn(beam.DoFn):
         profiles = ProfileIndex()
         for date_group, dataframe in grouped:
             # pandas includes every date in the range, not just the ones that had rows...
-            # TODO find out how to make the dataframe exclude empty entries instead
+            # https://github.com/pandas-dev/pandas/issues/47963
             if len(dataframe) == 0:
                 continue
 
@@ -183,10 +186,10 @@ class ProfileDoFn(beam.DoFn):
             profile.track(dataframe)
             profiles.set(str(date_group), profile.view())
 
-        self.logger.debug("Processing batch of size %s into %s profiles", len(
-            batch), len(profiles))
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        self.logger.debug(f"[{total_time:.4f}] Processing batch of size %s into %s profiles", len(batch), len(profiles))
 
-        # TODO best way of returning this thing is pickle?
         yield [profiles]
 
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
@@ -204,8 +207,7 @@ def serialize_index(index: ProfileIndex) -> List[bytes]:
 
 
 class ProfileIndexBatchConverter(ListBatchConverter):
-    # TODO why do I get an error around this stuff while uploading the template now?
-    def estimate_byte_size(self, batch: List[ProfileIndex]):
+    def estimate_byte_size(self, batch: List[ProfileIndex]) -> int:
         if len(batch) == 0:
             return 0
 
@@ -230,40 +232,41 @@ class InputOffset():
     offset: int
     table_spec: str
     timezone: tzinfo
+    query: str
 
 
 # Values for Input Mode. These can't be an enum because enums lead
 # to pickling errors when you run the pipeline if they're defined at
 # the top level.
-BIGQUERY_SQL = 'BIGQUERY_SQL'
-BIGQUERY_TABLE = 'BIGQUERY_TABLE'
-OFFSET = 'OFFSET'
+INPUT_MODE_BIGQUERY_SQL = 'BIGQUERY_SQL'
+INPUT_MODE_BIGQUERY_TABLE = 'BIGQUERY_TABLE'
+INPUT_MODE_OFFSET = 'OFFSET'
 
 
 def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
-    if (args.input_mode == BIGQUERY_SQL):
+    if (args.input_mode == INPUT_MODE_BIGQUERY_SQL):
         if (args.input_bigquery_sql is None):
             raise Exception(
-                f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {BIGQUERY_SQL}")
+                f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {INPUT_MODE_BIGQUERY_SQL}")
         return InputBigQuerySQL(query=args.input_bigquery_sql)
 
-    elif (args.input_mode == BIGQUERY_TABLE):
+    elif (args.input_mode == INPUT_MODE_BIGQUERY_TABLE):
         if (args.input_bigquery_table is None):
             raise Exception(
-                f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {BIGQUERY_TABLE}")
+                f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_BIGQUERY_TABLE}")
         return InputBigQueryTable(table_spec=args.input_bigquery_table)
-    elif (args.input_mode == OFFSET):
+    elif (args.input_mode == INPUT_MODE_OFFSET):
         if (args.input_offset is None):
             raise Exception(
-                f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {OFFSET}. See TODO for more information on how this is used.")
+                f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {INPUT_MODE_OFFSET}. See the README for more information on how this is used.")
 
         if (args.input_offset_table is None):
             raise Exception(
-                f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {OFFSET}.")
+                f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_OFFSET}.")
 
         if (args.input_offset_timezone is None):
             raise Exception(
-                f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {OFFSET}.")
+                f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {INPUT_MODE_OFFSET}.")
 
         timezone = tz.gettz(args.input_offset_timezone)
         if (timezone is None):
@@ -272,13 +275,23 @@ def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputB
         if (args.date_grouping_frequency != 'D'):
             raise Exception(f"Offset mode only supports daily offsets right now.")
 
-        return InputOffset(offset=int(args.input_offset), table_spec=args.input_offset_table, timezone=timezone)
+        if(args.input_offset_today_override is not None):
+            today = datetime.strptime(args.input_offset_today_override, "%Y-%m-%d").date()
+        else:
+            today = datetime.utcnow().date()
+            
+        table_spec = args.input_offset_table
+        offset = int(args.input_offset)
+        start = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).astimezone(timezone)
+        end = start + timedelta(offset)
+        query = f"SELECT * from `{table_spec}` where EXTRACT(DAY from {args.date_column}) = {end.day} AND EXTRACT(YEAR from {args.date_column}) = {end.year} AND EXTRACT(MONTH from {args.date_column}) = {end.month}"
+        return InputOffset(offset=offset, table_spec=table_spec, timezone=timezone, query=query)
 
     else:
         raise Exception(f"Unknown input_mode {args.input_mode}")
 
 
-def get_read_input(args: TemplateArgs, logger: logging.Logger):
+def get_read_input(args: TemplateArgs, logger: logging.Logger) -> ReadFromBigQuery:
     input = get_input(args)
 
     if (isinstance(input, InputBigQuerySQL)):
@@ -288,19 +301,14 @@ def get_read_input(args: TemplateArgs, logger: logging.Logger):
         logger.info('Using bigquery table %s', input.table_spec)
         return ReadFromBigQuery(table=input.table_spec)
     elif (isinstance(input, InputOffset)):
-        today = datetime.utcnow().date()
-        start = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).astimezone(input.timezone)
-        end = start + timedelta(1)
-
-        query = f"SELECT * from `{input.table_spec}` where EXTRACT(DAY from {args.date_column}) = {end.day} AND EXTRACT(YEAR from {args.date_column}) = {end.year} AND EXTRACT(MONTH from {args.date_column}) = {end.month}"
-        logger.info("Using offset query %s", query)
-        return ReadFromBigQuery(query=query, use_standard_sql=True)
+        logger.info("Using offset query %s", input.query)
+        return ReadFromBigQuery(query=input.query, use_standard_sql=True)
     else:
         # Can't happen unless we forget to check for a type of Input. Should be able to configure mypy to do this for us.
         raise Exception(f"Can't determine how to read data: {type(input)}")
 
 
-def run():
+def run() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -323,6 +331,11 @@ def run():
         dest='input_offset',
         required=False,
         help='Required when Input Mode is OFFSET. Get input from a generated BigQuery SQL statement that targets some negative integer offset from now.')
+    parser.add_argument(
+        '--input-offset-today-override',
+        dest='input_offset_today_override',
+        required=False,
+        help='Instead of applying the offset relative to today, use this override. Should be of the form YYYY-mm-dd')
     parser.add_argument(
         '--input-offset-table',
         dest='input_offset_table',
@@ -379,6 +392,7 @@ def run():
         input_bigquery_sql=known_args.input_bigquery_sql,
         input_bigquery_table=known_args.input_bigquery_table,
         input_offset=known_args.input_offset,
+        input_offset_today_override=known_args.input_offset_today_override,
         input_offset_table=known_args.input_offset_table,
         input_offset_timezone=known_args.input_offset_timezone,
         api_key=known_args.api_key,
@@ -393,7 +407,7 @@ def run():
     logger.setLevel(logging.getLevelName(args.logging_level))
     read_step = get_read_input(args, logger)
 
-    with beam.Pipeline(options=pipeline_options.view_as(PipelineOptions)) as p:
+    with beam.Pipeline(options=pipeline_options) as p:
 
         # The main pipeline
         result = (
