@@ -1,13 +1,15 @@
 NAME=
-BUCKET=gs://whylabs-dataflow-templates
+BUCKET_NAME=whylabs-dataflow-templates
+BUCKET=gs:/$(BUCKET_NAME)
 REGION=us-west1 # us-west2, us-central1
 TEMPLATE_LOCATION=$(BUCKET)/$(NAME)
 TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
 SHA=$(shell git rev-parse HEAD)
 
 
-.PHONY: default profile_query_template profile_query_template_matadata help upload_template profile_query_template_latest setup upload_flex_template docker_flex_image
-.PHONY: lint
+.PHONY: default profile_query_template upload_template 
+.PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
+.PHONY: lint test setup version_metadata help
 
 default:help
 
@@ -38,9 +40,11 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--dataset-id=model-42 \
 		--requirements_file=requirements.txt
 
-# Note, no --requirements_file. The --sdk_container_image contains the requirements
-profile_query_local_table: ## Upload the dataflow template that profiles a query
-	python src/ai/whylabs/templates/profile_query_template.py \
+example_run_direct_table: TEMPLATE=profile_query_template
+example_run_direct_table: SHA=latest
+example_run_direct_table: ## Run the profile directly, job without templatizing it first.
+	python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(NAME)"
 		--input-mode=BIGQUERY_TABLE \
 		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
 		--date-column=time_ts \
@@ -52,19 +56,18 @@ profile_query_local_table: ## Upload the dataflow template that profiles a query
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \
-		--sdk_container_image=naddeoa/whylogs-dataflow-dependencies:no-beam \
-		--prebuild_sdk_container_engine=cloud_build \
-		--docker_registry_push_url=gcr.io/whylogs-359820/profile_query_template_worker_image
+		--requirements_file=requirements.txt
 
 
-run_template: SHA=latest
-run_template: ## Run the dataflow template for the given SHA. Can manually set SHA=latest as well with make run_template SHA=latest or some git sha.
+example_run_template_table: TEMPLATE=profile_query_template
+example_run_template_table: SHA=latest
+example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(NAME)" \
-		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
-		--parameters input-mode=BIGQUERY_SQL \
-		--parameters input-bigquery-sql='select * from `whylogs-359820.btc_cash.transactions` where EXTRACT(YEAR from block_timestamp) = 2020' \
-		--parameters date-column=fake_time_2 \
-		--parameters date-grouping-frequency=D \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
+		--parameters input-mode=BIGQUERY_TABLE \
+		--parameters input-bigquery-sql='whylogs-359820.hacker_news.comments' \
+		--parameters date-column=time_ts \
+		--parameters date-grouping-frequency=Y \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
@@ -72,10 +75,29 @@ run_template: ## Run the dataflow template for the given SHA. Can manually set S
 		--region "us-west1" \
 		--num-workers 300
 
-run_template_offset: SHA=latest
-run_template_offset: ## Run the dataflow template for the given SHA. Can manually set SHA=latest as well with make run_template SHA=latest or some git sha.
+
+example_run_template_query: TEMPLATE=profile_query_template
+example_run_template_query: SHA=latest
+example_run_template_query: ## Run the Profile Template in query mode
 	gcloud dataflow flex-template run "$(NAME)" \
-		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
+		--parameters input-mode=BIGQUERY_SQL \
+		--parameters input-bigquery-sql='select * from `whylogs-359820.btc_cash.transactions`' \
+		--parameters date-column=fake_time_2 \
+		--parameters date-grouping-frequency=Y \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region "us-west1" \
+		--num-workers 300
+
+
+example_run_template_offset: TEMPLATE=profile_query_template
+example_run_template_offset: SHA=latest
+example_run_template_offset: ## Run the Profile Template in offset mode
+	gcloud dataflow flex-template run "$(NAME)" \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=OFFSET \
 		--parameters input-offset=-1 \
 		--parameters logging-level=DEBUG \
@@ -86,22 +108,6 @@ run_template_offset: ## Run the dataflow template for the given SHA. Can manuall
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region "us-central1" \
-		--num-workers 300
-
-
-
-run_template_working: SHA=5fecb751aca56042120b677f308a2ccd31b7aa08
-run_template_working: ## tmp
-	gcloud dataflow flex-template run "$(NAME)" \
-		--template-file-gcs-location gs://whylabs-dataflow-templates/profile_query_template/$(SHA)/profile_query_template.json \
-		--parameters input='SELECT * FROM `bigquery-public-data.hacker_news.comments`' \
-		--parameters date_column=time_ts \
-		--parameters date_grouping_frequency=Y \
-		--parameters org_id=org-0 \
-		--parameters dataset_id=model-42 \
-		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
-		--parameters api_key=$(WHYLABS_API_KEY) \
-		--region "us-west1" \
 		--num-workers 300
 
 
