@@ -1,9 +1,10 @@
 NAME=
 BUCKET_NAME=whylabs-dataflow-templates
-BUCKET=gs:/$(BUCKET_NAME)
+BUCKET=gs://$(BUCKET_NAME)
 REGION=us-west1 # us-west2, us-central1
 TEMPLATE_LOCATION=$(BUCKET)/$(NAME)
 TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
+REGION=us-central1
 SHA=$(shell git rev-parse HEAD)
 
 
@@ -22,6 +23,7 @@ profile_query_template: VERSION=$(SHA)
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 
+profile_query_local_query: REGION=us-central1
 profile_query_local_query: ## Upload the dataflow template that profiles a query
 	python src/ai/whylabs/templates/profile_query_template.py \
 		--input-mode=BIGQUERY_SQL \
@@ -31,7 +33,7 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--logging-level=DEBUG \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
-		--region=us-central1 \
+		--region=$(REGION) \
 		--num_workers=300 \
 		--job_name=$(NAME) \
 		--output=gs://whylabs-dataflow-templates-tests/$(NAME)/profile \
@@ -40,6 +42,7 @@ profile_query_local_query: ## Upload the dataflow template that profiles a query
 		--dataset-id=model-42 \
 		--requirements_file=requirements.txt
 
+example_run_direct_table: REGION=us-central1
 example_run_direct_table: TEMPLATE=profile_query_template
 example_run_direct_table: SHA=latest
 example_run_direct_table: ## Run the profile directly, job without templatizing it first.
@@ -59,6 +62,7 @@ example_run_direct_table: ## Run the profile directly, job without templatizing 
 		--requirements_file=requirements.txt
 
 
+example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=profile_query_template
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
@@ -72,10 +76,11 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
-		--region "us-west1" \
+		--region $(REGION) \
 		--num-workers 300
 
 
+example_run_template_query: REGION=us-central1
 example_run_template_query: TEMPLATE=profile_query_template
 example_run_template_query: SHA=latest
 example_run_template_query: ## Run the Profile Template in query mode
@@ -89,10 +94,11 @@ example_run_template_query: ## Run the Profile Template in query mode
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
-		--region "us-west1" \
+		--region $(REGION) \
 		--num-workers 300
 
 
+example_run_template_offset: REGION=us-central1
 example_run_template_offset: TEMPLATE=profile_query_template
 example_run_template_offset: SHA=latest
 example_run_template_offset: ## Run the Profile Template in offset mode
@@ -107,7 +113,7 @@ example_run_template_offset: ## Run the Profile Template in offset mode
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
-		--region "us-central1" \
+		--region $(REGION) \
 		--num-workers 300
 
 
