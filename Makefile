@@ -121,10 +121,10 @@ lint:
 	poetry run mypy src/
 
 format:
-	poetry run black --check --line-length 140 src
+	poetry run black --check --line-length 120 src
 
 format-fix:
-	poetry run black --line-length 140 src
+	poetry run black --line-length 120 src
 
 setup:
 	poetry install

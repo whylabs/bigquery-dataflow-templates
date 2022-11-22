@@ -15,7 +15,7 @@ from whylogs.core import DatasetProfile, DatasetProfileView
 
 
 @dataclass
-class TemplateArgs():
+class TemplateArgs:
     input_mode: str
     input_bigquery_sql: Optional[str]
     input_bigquery_table: Optional[str]
@@ -32,7 +32,7 @@ class TemplateArgs():
     date_grouping_frequency: str
 
 
-class ProfileIndex():
+class ProfileIndex:
     """
     Abstraction around the type of thing that we return from profiling rows. It represents
     a dictionary of dataset timestamp to whylogs ResultSet.
@@ -51,7 +51,7 @@ class ProfileIndex():
         return list(self.index.items())
 
     # Mutates
-    def merge_index(self, other: 'ProfileIndex') -> 'ProfileIndex':
+    def merge_index(self, other: "ProfileIndex") -> "ProfileIndex":
         for date_str, view in other.index.items():
             self.merge(date_str, view)
 
@@ -86,6 +86,7 @@ class ProfileIndex():
         #   just export them and write them externally? If they export the profiles, do they only do that
         #   becaues they can't write it from the cluster if they wanted to?
         from whylogs.api.writer.whylabs import WhyLabsWriter
+
         writer = WhyLabsWriter(org_id=org_id, api_key=api_key, dataset_id=dataset_id)
 
         for date_str, view in self.index.items():
@@ -144,10 +145,7 @@ class UploadToWhylabsFn(beam.DoFn):
 
     def process_batch(self, batch: List[ProfileIndex]) -> Iterator[List[ProfileIndex]]:
         for index in batch:
-            index.upload_to_whylabs(self.logger,
-                                    self.args.org_id,
-                                    self.args.api_key,
-                                    self.args.dataset_id)
+            index.upload_to_whylabs(self.logger, self.args.org_id, self.args.api_key, self.args.dataset_id)
         yield batch
 
 
@@ -169,7 +167,7 @@ class ProfileDoFn(beam.DoFn):
 
     def _process_batch_with_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
         start_time = time.perf_counter()
-        tmp_date_col = '_whylogs_datetime'
+        tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
@@ -214,7 +212,7 @@ class ProfileIndexBatchConverter(ListBatchConverter):
 
         estimate = batch[0].estimate_size()
 
-        logger.debug(f'Estimating size at {estimate} bytes')
+        logger.debug(f"Estimating size at {estimate} bytes")
         return estimate
 
 
@@ -222,17 +220,17 @@ BatchConverter.register(ProfileIndexBatchConverter)
 
 
 @dataclass
-class InputBigQuerySQL():
+class InputBigQuerySQL:
     query: str
 
 
 @dataclass
-class InputBigQueryTable():
+class InputBigQueryTable:
     table_spec: str
 
 
 @dataclass
-class InputOffset():
+class InputOffset:
     offset: int
     table_spec: str
     timezone: tzinfo
@@ -242,44 +240,49 @@ class InputOffset():
 # Values for Input Mode. These can't be an enum because enums lead
 # to pickling errors when you run the pipeline if they're defined at
 # the top level.
-INPUT_MODE_BIGQUERY_SQL = 'BIGQUERY_SQL'
-INPUT_MODE_BIGQUERY_TABLE = 'BIGQUERY_TABLE'
-INPUT_MODE_OFFSET = 'OFFSET'
+INPUT_MODE_BIGQUERY_SQL = "BIGQUERY_SQL"
+INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
+INPUT_MODE_OFFSET = "OFFSET"
 
 
 def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
-    if (args.input_mode == INPUT_MODE_BIGQUERY_SQL):
-        if (args.input_bigquery_sql is None):
+    if args.input_mode == INPUT_MODE_BIGQUERY_SQL:
+        if args.input_bigquery_sql is None:
             raise Exception(
-                f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {INPUT_MODE_BIGQUERY_SQL}")
+                f"Missing input_bigquery_sql. Should pass in a SQL statement that references a BigQuery table when using input_mode {INPUT_MODE_BIGQUERY_SQL}"
+            )
         return InputBigQuerySQL(query=args.input_bigquery_sql)
 
-    elif (args.input_mode == INPUT_MODE_BIGQUERY_TABLE):
-        if (args.input_bigquery_table is None):
+    elif args.input_mode == INPUT_MODE_BIGQUERY_TABLE:
+        if args.input_bigquery_table is None:
             raise Exception(
-                f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_BIGQUERY_TABLE}")
+                f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_BIGQUERY_TABLE}"
+            )
         return InputBigQueryTable(table_spec=args.input_bigquery_table)
-    elif (args.input_mode == INPUT_MODE_OFFSET):
-        if (args.input_offset is None):
+    elif args.input_mode == INPUT_MODE_OFFSET:
+        if args.input_offset is None:
             raise Exception(
-                f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {INPUT_MODE_OFFSET}. See the README for more information on how this is used.")
+                f"Missing input_offset. Should pass in a negative integer offset (like -1, -2) when using input_mode {INPUT_MODE_OFFSET}. See the README for more information on how this is used."
+            )
 
-        if (args.input_offset_table is None):
+        if args.input_offset_table is None:
             raise Exception(
-                f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_OFFSET}.")
+                f"Missing input_offset_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_OFFSET}."
+            )
 
-        if (args.input_offset_timezone is None):
+        if args.input_offset_timezone is None:
             raise Exception(
-                f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {INPUT_MODE_OFFSET}.")
+                f"Missing input_offset_timezone. Should pass in a region that will be passed to Python's dateutil.tz.gettz (i.e., America/Chicago, America/New_York). Required when using {INPUT_MODE_OFFSET}."
+            )
 
         timezone = tz.gettz(args.input_offset_timezone)
-        if (timezone is None):
+        if timezone is None:
             raise Exception(f"Couldn't look up timezone {args.input_offset_timezone}")
 
-        if (args.date_grouping_frequency != 'D'):
+        if args.date_grouping_frequency != "D":
             raise Exception(f"Offset mode only supports daily offsets right now.")
 
-        if (args.input_offset_today_override is not None):
+        if args.input_offset_today_override is not None:
             today = datetime.strptime(args.input_offset_today_override, "%Y-%m-%d").date()
         else:
             today = datetime.utcnow().date()
@@ -298,13 +301,13 @@ def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputB
 def get_read_input(args: TemplateArgs, logger: logging.Logger) -> ReadFromBigQuery:
     input = get_input(args)
 
-    if (isinstance(input, InputBigQuerySQL)):
-        logger.info('Using bigquery query %s', input.query)
+    if isinstance(input, InputBigQuerySQL):
+        logger.info("Using bigquery query %s", input.query)
         return ReadFromBigQuery(query=input.query, use_standard_sql=True)
-    elif (isinstance(input, InputBigQueryTable)):
-        logger.info('Using bigquery table %s', input.table_spec)
+    elif isinstance(input, InputBigQueryTable):
+        logger.info("Using bigquery table %s", input.table_spec)
         return ReadFromBigQuery(table=input.table_spec)
-    elif (isinstance(input, InputOffset)):
+    elif isinstance(input, InputOffset):
         logger.info("Using offset query %s", input.query)
         return ReadFromBigQuery(query=input.query, use_standard_sql=True)
     else:
@@ -316,76 +319,79 @@ def run() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--input-mode',
-        dest='input_mode',
-        required=True,
-        help='One of BIGQUERY_SQL | BIGQUERY_TABLE | OFFSET')
+        "--input-mode", dest="input_mode", required=True, help="One of BIGQUERY_SQL | BIGQUERY_TABLE | OFFSET"
+    )
     parser.add_argument(
-        '--input-bigquery-sql',
-        dest='input_bigquery_sql',
+        "--input-bigquery-sql",
+        dest="input_bigquery_sql",
         required=False,
-        help='Required when Input Mode is BIGQUERY_SQL. Get input from a BigQuery SQL statement that references a table.')
+        help="Required when Input Mode is BIGQUERY_SQL. Get input from a BigQuery SQL statement that references a table.",
+    )
     parser.add_argument(
-        '--input-bigquery-table',
-        dest='input_bigquery_table',
+        "--input-bigquery-table",
+        dest="input_bigquery_table",
         required=False,
-        help='Required when Input Mode is BIGQUERY_TABLE. Get input from a BigQuery table. Should have the form PROJECT.DATASET.TABLE.')
+        help="Required when Input Mode is BIGQUERY_TABLE. Get input from a BigQuery table. Should have the form PROJECT.DATASET.TABLE.",
+    )
     parser.add_argument(
-        '--input-offset',
-        dest='input_offset',
+        "--input-offset",
+        dest="input_offset",
         required=False,
-        help='Required when Input Mode is OFFSET. Get input from a generated BigQuery SQL statement that targets some negative integer offset from now.')
+        help="Required when Input Mode is OFFSET. Get input from a generated BigQuery SQL statement that targets some negative integer offset from now.",
+    )
     parser.add_argument(
-        '--input-offset-today-override',
-        dest='input_offset_today_override',
+        "--input-offset-today-override",
+        dest="input_offset_today_override",
         required=False,
-        help='Instead of applying the offset relative to today, use this override. Should be of the form YYYY-mm-dd')
+        help="Instead of applying the offset relative to today, use this override. Should be of the form YYYY-mm-dd",
+    )
     parser.add_argument(
-        '--input-offset-table',
-        dest='input_offset_table',
+        "--input-offset-table",
+        dest="input_offset_table",
         required=False,
-        help='Which table to use in the auto generated SQL statement. Should have the form PROJECTDATASET.TABLE.')
+        help="Which table to use in the auto generated SQL statement. Should have the form PROJECTDATASET.TABLE.",
+    )
     parser.add_argument(
-        '--input-offset-timezone',
-        dest='input_offset_timezone',
+        "--input-offset-timezone",
+        dest="input_offset_timezone",
         required=False,
-        default='UTC',
-        help='Which timezone to use when determining what -1 days means (from now). UTC by default.')
+        default="UTC",
+        help="Which timezone to use when determining what -1 days means (from now). UTC by default.",
+    )
     parser.add_argument(
-        '--date-column',
-        dest='date_column',
+        "--date-column",
+        dest="date_column",
         required=True,
-        help='The string name of the column that contains a datetime. The column should be of type TIMESTAMP in the SQL schema.')
+        help="The string name of the column that contains a datetime. The column should be of type TIMESTAMP in the SQL schema.",
+    )
     parser.add_argument(
-        '--date-grouping-frequency',
-        dest='date_grouping_frequency',
-        default='D',
-        help='One of the freq options in the pandas Grouper(freq=) API. D for daily, W for weekly, etc.')
+        "--date-grouping-frequency",
+        dest="date_grouping_frequency",
+        default="D",
+        help="One of the freq options in the pandas Grouper(freq=) API. D for daily, W for weekly, etc.",
+    )
     parser.add_argument(
-        '--logging-level',
-        dest='logging_level',
-        default='INFO',
-        help='One of the logging levels from the logging module.')
+        "--logging-level",
+        dest="logging_level",
+        default="INFO",
+        help="One of the logging levels from the logging module.",
+    )
     parser.add_argument(
-        '--org-id',
-        dest='org_id',
+        "--org-id", dest="org_id", required=True, help="The WhyLabs organization id to write the result profiles to."
+    )
+    parser.add_argument(
+        "--dataset-id",
+        dest="dataset_id",
         required=True,
-        help='The WhyLabs organization id to write the result profiles to.')
+        help="The WhyLabs model id id to write the result profiles to. Must be in the provided organization.",
+    )
     parser.add_argument(
-        '--dataset-id',
-        dest='dataset_id',
+        "--api-key",
+        dest="api_key",
         required=True,
-        help='The WhyLabs model id id to write the result profiles to. Must be in the provided organization.')
-    parser.add_argument(
-        '--api-key',
-        dest='api_key',
-        required=True,
-        help='An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.')
-    parser.add_argument(
-        '--output',
-        dest='output',
-        required=True,
-        help='Output file or gs:// path to write results to.')
+        help="An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.",
+    )
+    parser.add_argument("--output", dest="output", required=True, help="Output file or gs:// path to write results to.")
 
     known_args, pipeline_args = parser.parse_known_args()
     pipeline_options = PipelineOptions(pipeline_args)
@@ -405,7 +411,8 @@ def run() -> None:
         org_id=known_args.org_id,
         logging_level=known_args.logging_level,
         date_column=known_args.date_column,
-        date_grouping_frequency=known_args.date_grouping_frequency)
+        date_grouping_frequency=known_args.date_grouping_frequency,
+    )
 
     logger = logging.getLogger()
     logger.setLevel(logging.getLevelName(args.logging_level))
@@ -416,29 +423,25 @@ def run() -> None:
         # The main pipeline
         result = (
             p
-            | 'ReadTable' >> read_step
-            .with_output_types(Dict[str, Any])
-            | 'Profile' >> beam.ParDo(ProfileDoFn(args))
-            | 'Merge profiles' >> beam.CombineGlobally(WhylogsProfileIndexMerger(args))
-            .with_output_types(ProfileIndex)
+            | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
+            | "Profile" >> beam.ParDo(ProfileDoFn(args))
+            | "Merge profiles" >> beam.CombineGlobally(WhylogsProfileIndexMerger(args)).with_output_types(ProfileIndex)
         )
 
         # A fork that uploads to WhyLabs
-        result | 'Upload to WhyLabs' >> (beam.ParDo(UploadToWhylabsFn(args))
-                                         .with_input_types(ProfileIndex)
-                                         .with_output_types(ProfileIndex))
+        result | "Upload to WhyLabs" >> (
+            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(ProfileIndex).with_output_types(ProfileIndex)
+        )
 
         # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
-        (result
-         | 'Serialize Proflies' >> beam.ParDo(serialize_index)
-            .with_input_types(ProfileIndex)
-            .with_output_types(bytes)
-         | 'Upload to GCS' >> WriteToText(args.output,
-                                          max_records_per_shard=1,
-                                          file_name_suffix=".bin")
-         )
+        (
+            result
+            | "Serialize Proflies"
+            >> beam.ParDo(serialize_index).with_input_types(ProfileIndex).with_output_types(bytes)
+            | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     run()
