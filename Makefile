@@ -11,7 +11,7 @@ SHA=$(shell git rev-parse HEAD)
 
 .PHONY: default profile_query_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
-.PHONY: lint format test setup version_metadata help
+.PHONY: lint format format-fix test setup version_metadata help
 
 default:help
 
