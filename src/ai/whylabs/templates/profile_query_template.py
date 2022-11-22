@@ -208,10 +208,14 @@ def serialize_index(index: ProfileIndex) -> List[bytes]:
 
 class ProfileIndexBatchConverter(ListBatchConverter):
     def estimate_byte_size(self, batch: List[ProfileIndex]) -> int:
+        logger = logging.getLogger()
         if len(batch) == 0:
             return 0
 
-        return batch[0].estimate_size()
+        estimate = batch[0].estimate_size()
+
+        logger.debug(f'Estimating size at {estimate} bytes')
+        return estimate
 
 
 BatchConverter.register(ProfileIndexBatchConverter)
@@ -275,11 +279,11 @@ def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputB
         if (args.date_grouping_frequency != 'D'):
             raise Exception(f"Offset mode only supports daily offsets right now.")
 
-        if(args.input_offset_today_override is not None):
+        if (args.input_offset_today_override is not None):
             today = datetime.strptime(args.input_offset_today_override, "%Y-%m-%d").date()
         else:
             today = datetime.utcnow().date()
-            
+
         table_spec = args.input_offset_table
         offset = int(args.input_offset)
         start = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).astimezone(timezone)
@@ -403,7 +407,7 @@ def run() -> None:
         date_column=known_args.date_column,
         date_grouping_frequency=known_args.date_grouping_frequency)
 
-    logger = logging.getLogger("main")
+    logger = logging.getLogger()
     logger.setLevel(logging.getLevelName(args.logging_level))
     read_step = get_read_input(args, logger)
 

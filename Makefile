@@ -23,25 +23,6 @@ profile_query_template: VERSION=$(SHA)
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 
-profile_query_local_query: REGION=us-central1
-profile_query_local_query: ## Upload the dataflow template that profiles a query
-	python src/ai/whylabs/templates/profile_query_template.py \
-		--input-mode=BIGQUERY_SQL \
-		--input-bigquery-sql='select * from `whylogs-359820.btc_cash.transactions` where EXTRACT(YEAR from block_timestamp) = 2020' \
-		--date-column=fake_time_2 \
-		--date-grouping-frequency=Y \
-		--logging-level=DEBUG \
-		--org-id=org-0 \
-		--project=whylogs-359820 \
-		--region=$(REGION) \
-		--num_workers=300 \
-		--job_name=$(NAME) \
-		--output=gs://whylabs-dataflow-templates-tests/$(NAME)/profile \
-		--api-key=$(WHYLABS_API_KEY) \
-		--runner=DataflowRunner \
-		--dataset-id=model-42 \
-		--requirements_file=requirements.txt
-
 example_run_direct_table: REGION=us-central1
 example_run_direct_table: TEMPLATE=profile_query_template
 example_run_direct_table: SHA=latest
@@ -136,7 +117,7 @@ requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --without-hashes > requirements.txt
 
 lint:
-	mypy src/
+	poetry run mypy src/
 
 setup:
 	poetry install

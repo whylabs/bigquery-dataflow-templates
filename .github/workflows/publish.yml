@@ -41,6 +41,12 @@ jobs:
       - name: Install python dependencies
         run: make setup 
 
+      - name: Check types
+        run: make lint
+
+      - name: Run test
+        run: make test
+
       - name: Upload template to GCS
         run: poetry run make profile_query_template SHA=${{github.sha}}
 
