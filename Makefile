@@ -26,10 +26,9 @@ profile_query_template: upload_template version_metadata ## Upload the dataflow 
 
 example_run_direct_table: REGION=us-central1
 example_run_direct_table: TEMPLATE=profile_query_template
-example_run_direct_table: SHA=latest
 example_run_direct_table: ## Run the profile directly, job without templatizing it first.
 	python src/ai/whylabs/templates/$(TEMPLATE).py \
-		--job_name="$(NAME)"
+		--job_name="$(NAME)" \
 		--input-mode=BIGQUERY_TABLE \
 		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
 		--date-column=time_ts \
