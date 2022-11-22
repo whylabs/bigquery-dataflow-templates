@@ -1,4 +1,5 @@
 NAME=
+PY_SOURCE=$(shell find src/ -type f -name "*.py") 
 BUCKET_NAME=whylabs-dataflow-templates
 BUCKET=gs://$(BUCKET_NAME)
 REGION=us-west1 # us-west2, us-central1
@@ -10,7 +11,7 @@ SHA=$(shell git rev-parse HEAD)
 
 .PHONY: default profile_query_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
-.PHONY: lint test setup version_metadata help
+.PHONY: lint format test setup version_metadata help
 
 default:help
 
@@ -119,6 +120,12 @@ requirements.txt: pyproject.toml
 lint:
 	poetry run mypy src/
 
+format:
+	poetry run black --check --line-length 140 src
+
+format-fix:
+	poetry run black --line-length 140 src
+
 setup:
 	poetry install
 
@@ -130,5 +137,3 @@ help: ## Show this help message.
 	@echo
 	@echo 'targets:'
 	@egrep '^(.+)\:(.*) ##\ (.+)' ${MAKEFILE_LIST} | sed -s 's/:\(.*\)##/: ##/' | column -t -c 2 -s ':#'
-
-

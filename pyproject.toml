@@ -19,7 +19,14 @@ types-python-dateutil = "^2.8.19.4"
 mypy = "^0.990"
 pytest = "^7.2.0"
 autopep8 = "^2.0.0"
+black = "^22.10.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.autopep8]
+max_line_length = 140
+
+[flake8]
+max-line-length = 140
