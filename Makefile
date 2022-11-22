@@ -104,7 +104,7 @@ upload_template: requirements.txt # Base target for other targets to use. Set th
 		--sdk-language=PYTHON \
 		--image-gcr-path=gcr.io/whylogs-359820/$(NAME):$(SHA) \
 		--flex-template-base-image=gcr.io/dataflow-templates-base/python38-template-launcher-base \
-		--env=FLEX_TEMPLATE_PYTHON_PY_FILE=ai/whylabs/templates/profile_query_template.py \
+		--env=FLEX_TEMPLATE_PYTHON_PY_FILE=ai/whylabs/templates/$(NAME).py \
 		--env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=requirements.txt \
 		--py-path=src/ \
 		--py-path=requirements.txt \
