@@ -33,13 +33,20 @@ jobs:
         with:
           python-version: '3.8' 
 
+      - name: Check python 
+        run: python --version
+
+      - name: Check python 
+        run: which python
+
       - uses: abatilo/actions-poetry@v2
         name: Install poetry
         with:
           poetry-version: 1.2.2 
 
-      - name: Check python 
-        run: python --version
+
+      - name: Check python  poetry
+        run: poetry run python --version
 
       # - name: Install python dependencies
       #   run: make setup 
