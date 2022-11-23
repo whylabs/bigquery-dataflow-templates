@@ -50,6 +50,10 @@ jobs:
       - name: Run test
         run: make test
 
+      - name: Do a test job
+        if: ${{ github.event_name == 'pull_request' }}
+        run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}}
+
       - name: Upload template to GCS
         run: poetry run make profile_query_template SHA=${{github.sha}}
 
