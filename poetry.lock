@@ -978,7 +978,7 @@ python-versions = ">=3.7"
 name = "types-python-dateutil"
 version = "2.8.19.4"
 description = "Typing stubs for python-dateutil"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 
@@ -1067,7 +1067,7 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "2915b98a233f86c721426fe6cdf16608f5f770c3604c3231860f259e12742342"
+content-hash = "e84033078498d1879ccf0d515ce5dca164ad8b6afcc631ef569e2eb52083e3be"
 
 [metadata.files]
 apache-beam = [
