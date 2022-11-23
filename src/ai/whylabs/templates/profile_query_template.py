@@ -1,5 +1,6 @@
 import argparse
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
@@ -67,8 +68,6 @@ class ProfileViews(beam.DoFn):
 
     @beam.DoFn.yields_elements
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[str, DatasetProfileView]]:
-        import time
-
         start_time = time.perf_counter()
         tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)

@@ -3,7 +3,6 @@ PY_SOURCE=$(shell find src/ -type f -name "*.py")
 TEMPLATE_PROJECT=whylogs-359820
 BUCKET_NAME=whylabs-dataflow-templates
 BUCKET=gs://$(BUCKET_NAME)
-REGION=us-west1 # us-west2, us-central1
 TEMPLATE_LOCATION=$(BUCKET)/$(NAME)
 TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
 REGION=us-central1

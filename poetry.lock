@@ -1002,7 +1002,7 @@ urllib3 = ">=1.25.3"
 
 [[package]]
 name = "whylogs"
-version = "1.1.14"
+version = "1.1.12"
 description = "Profile and monitor your ML data pipeline end-to-end"
 category = "main"
 optional = false
@@ -1052,7 +1052,7 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "3.8.*"
-content-hash = "04a46fd4172aaef3138f74ba217c0c1e92eb5003c4a9c056489fe797e95760d3"
+content-hash = "930d1b8b9458bae1be14d8521d61f5aac8f24cd51efa48921605905bcce10b65"
 
 [metadata.files]
 apache-beam = [
@@ -1954,8 +1954,8 @@ whylabs-client = [
     {file = "whylabs_client-0.4.0-py3-none-any.whl", hash = "sha256:016151c3a25118a50f2c88675a3754cf8b5ee57196f3d28a2e67a12be1449d65"},
 ]
 whylogs = [
-    {file = "whylogs-1.1.14-py3-none-any.whl", hash = "sha256:e5aad2010097916d3c34bb88e6ccb415c2dc4139c203d703f374b9b60cdfd3e2"},
-    {file = "whylogs-1.1.14.tar.gz", hash = "sha256:c39558c6065599cbdcdb25c6df33d55602aca1b39db54ae7872665d8c0f6ec93"},
+    {file = "whylogs-1.1.12-py3-none-any.whl", hash = "sha256:aa75225fe3ebc9a43b3daa60ec8925e8389aa1d5b1543f5e9cfdb97286fcddb4"},
+    {file = "whylogs-1.1.12.tar.gz", hash = "sha256:b9b012ee711587a2f9b3d769e65a925ac5261e30d6741eae97d14ab00c47626e"},
 ]
 whylogs-sketching = [
     {file = "whylogs-sketching-3.4.1.dev3.tar.gz", hash = "sha256:40b90eb9d5e4cbbfa63f6a1f3a3332b72258d270044b79030dc5d720fddd9499"},
