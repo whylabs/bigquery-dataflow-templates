@@ -9,6 +9,7 @@ TEMPLATE_TMP_LOCATION=$(TEMPLATE_LOCATION)/tmp
 REGION=us-central1
 SHA=$(shell git rev-parse HEAD)
 VERSION=$(SHA)
+REQUIREMENTS=requirements.txt
 
 .PHONY: default profile_query_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
@@ -23,12 +24,12 @@ profile_query_template_latest: upload_template version_metadata ## Upload the da
 profile_query_template: NAME=profile_query_template
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
-
-integ: example_run_direct_table
+integ: REQUIREMENTS=integ_requirements.txt
+integ: example_run_direct_table integ_requirements.txt
 
 example_run_direct_table: JOB_NAME=$(NAME)
 example_run_direct_table: TEMPLATE=profile_query_template
-example_run_direct_table: ## Run the profile directly, job without templatizing it first.
+example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
 	python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_TABLE \
@@ -43,11 +44,11 @@ example_run_direct_table: ## Run the profile directly, job without templatizing 
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \
-		--requirements_file=requirements.txt
+		--requirements_file=$(REQUIREMENTS)
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=profile_query_template
-example_run_direct_query: ## Run the profile directly, job without templatizing it first.
+example_run_direct_query: requirements.txt ## Run the profile directly, job without templatizing it first.
 	python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_SQL \
@@ -62,7 +63,7 @@ example_run_direct_query: ## Run the profile directly, job without templatizing 
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \
-		--requirements_file=requirements.txt
+		--requirements_file=$(REQUIREMENTS)
 
 
 example_run_template_table: JOB_NAME=$(NAME)
@@ -124,15 +125,15 @@ example_run_template_offset: ## Run the Profile Template in offset mode
 		--num-workers 300
 
 
-upload_template: requirements.txt # Base target for other targets to use. Set the NAME, VERSION
+upload_template: template_requirements.txt # Base target for other targets to use. Set the NAME, VERSION
 	gcloud dataflow flex-template build $(TEMPLATE_LOCATION)/$(VERSION)/$(NAME).json \
 		--sdk-language=PYTHON \
 		--image-gcr-path=gcr.io/$(TEMPLATE_PROJECT)/$(NAME):$(SHA) \
 		--flex-template-base-image=gcr.io/dataflow-templates-base/python38-template-launcher-base \
 		--env=FLEX_TEMPLATE_PYTHON_PY_FILE=ai/whylabs/templates/$(NAME).py \
-		--env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=requirements.txt \
+		--env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=template_requirements.txt \
 		--py-path=src/ \
-		--py-path=requirements.txt \
+		--py-path=template-template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
 
 version_metadata:
@@ -140,7 +141,13 @@ version_metadata:
 	gcloud storage cp /tmp/version_$(SHA).sha $(TEMPLATE_LOCATION)/$(VERSION)/version.sha
 
 requirements.txt: pyproject.toml
-	poetry export -f requirements.txt --without dev > requirements.txt
+	poetry export -f requirements.txt > requirements.txt
+
+template_requirements.txt: pyproject.toml
+	poetry export -f requirements.txt --without dev --without beam > template_requirements.txt
+
+integ_requirements.txt: pyproject.toml
+	poetry export -f requirements.txt --without dev > integ_requirements.txt
 
 lint:
 	poetry run mypy src/
