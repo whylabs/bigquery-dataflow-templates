@@ -100,12 +100,17 @@ class UploadToWhylabsFn(beam.DoFn):
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
-    def process_batch(self, batch: List[Tuple[str, DatasetProfileView]]) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
+    def process_batch(
+        self, batch: List[Tuple[str, DatasetProfileView]]
+    ) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
         from whylogs.api.writer.whylabs import WhyLabsWriter
+
         writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
 
         for date_str, view in batch:
-            self.logger.info("Writing dataset profile to %s:%s for timestamp %s", self.args.org_id, self.args.dataset_id, date_str)
+            self.logger.info(
+                "Writing dataset profile to %s:%s for timestamp %s", self.args.org_id, self.args.dataset_id, date_str
+            )
             writer.write(view)
 
         yield batch
@@ -364,17 +369,17 @@ def run() -> None:
             p
             | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
             | "Profile" >> beam.ParDo(ProfileViews(args)).with_output_types(Tuple[str, DatasetProfileView])
-
             # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)
             #     .with_input_types(Tuple[str, DatasetProfileView])
             #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
-
-            | "Merge profiles" >> beam.CombinePerKey(ViewCombiner(args))
-            .with_output_types(Tuple[str, DatasetProfileView])
+            | "Merge profiles"
+            >> beam.CombinePerKey(ViewCombiner(args)).with_output_types(Tuple[str, DatasetProfileView])
         )
 
         # A fork that uploads to WhyLabs
-        result | "Upload to WhyLabs" >> (beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView]))
+        result | "Upload to WhyLabs" >> (
+            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView])
+        )
 
         # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
         (
