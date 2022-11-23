@@ -30,7 +30,7 @@ integ: example_run_direct_table integ_requirements.txt
 example_run_direct_table: JOB_NAME=$(NAME)
 example_run_direct_table: TEMPLATE=profile_query_template
 example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
-	python src/ai/whylabs/templates/$(TEMPLATE).py \
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_TABLE \
 		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
@@ -49,7 +49,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=profile_query_template
 example_run_direct_query: requirements.txt ## Run the profile directly, job without templatizing it first.
-	python src/ai/whylabs/templates/$(TEMPLATE).py \
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_SQL \
 		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.comments`' \
