@@ -24,7 +24,6 @@ profile_query_template: VERSION=$(SHA)
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 
-example_run_direct_table: REGION=us-central1
 example_run_direct_table: TEMPLATE=profile_query_template
 example_run_direct_table: ## Run the profile directly, job without templatizing it first.
 	python src/ai/whylabs/templates/$(TEMPLATE).py \
@@ -35,8 +34,27 @@ example_run_direct_table: ## Run the profile directly, job without templatizing 
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
-		--region=us-west1 \
-		--output=gs://whylabs-dataflow-templates-tests/table-read/profile \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-42 \
+		--requirements_file=requirements.txt
+
+example_run_direct_query: TEMPLATE=profile_query_template
+example_run_direct_query: ## Run the profile directly, job without templatizing it first.
+	python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(NAME)" \
+		--input-mode=BIGQUERY_SQL \
+		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.comments` limit 1000' \
+		--date-column=time_ts \
+		--date-grouping-frequency=Y \
+		--org-id=org-0 \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \

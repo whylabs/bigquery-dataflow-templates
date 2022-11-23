@@ -32,107 +32,64 @@ class TemplateArgs:
     date_grouping_frequency: str
 
 
-class ProfileIndex:
-    """
-    Abstraction around the type of thing that we return from profiling rows. It represents
-    a dictionary of dataset timestamp to whylogs ResultSet.
-    """
-
-    def __init__(self, index: Dict[str, DatasetProfileView] = {}) -> None:
-        self.index: Dict[str, DatasetProfileView] = index
-
-    def get(self, date_str: str) -> Optional[DatasetProfileView]:
-        return self.index[date_str]
-
-    def set(self, date_str: str, view: DatasetProfileView) -> None:
-        self.index[date_str] = view
-
-    def tuples(self) -> List[Tuple[str, DatasetProfileView]]:
-        return list(self.index.items())
-
-    # Mutates
-    def merge_index(self, other: "ProfileIndex") -> "ProfileIndex":
-        for date_str, view in other.index.items():
-            self.merge(date_str, view)
-
-        return self
-
-    def merge(self, date_str: str, view: DatasetProfileView) -> None:
-        if date_str in self.index:
-            self.index[date_str] = self.index[date_str].merge(view)
-        else:
-            self.index[date_str] = view
-
-    def estimate_size(self) -> int:
-        return sum(map(len, self.extract().values()))
-
-    def __len__(self) -> int:
-        return len(self.index)
-
-    def __iter__(self) -> Iterator[bytes]:
-        # The runtime wants to use this to estimate the size of the object,
-        # I suppose to load balance across workers.
-        return self.extract().values().__iter__()
-
-    def __getstate__(self) -> Dict[str, Any]:
-        return self.__dict__
-
-    def __setstate__(self, d: Dict[str, Any]) -> None:
-        self.__dict__ = d
-
-    def upload_to_whylabs(self, logger: logging.Logger, org_id: str, api_key: str, dataset_id: str) -> None:
-        # TODO ResultSets only have DatasetProfiles, not DatasetProfileViews, I can't use them here.
-        #   But then how does this work with spark? How are they writing their profiles there, or do they
-        #   just export them and write them externally? If they export the profiles, do they only do that
-        #   becaues they can't write it from the cluster if they wanted to?
-        from whylogs.api.writer.whylabs import WhyLabsWriter
-
-        writer = WhyLabsWriter(org_id=org_id, api_key=api_key, dataset_id=dataset_id)
-
-        for date_str, view in self.index.items():
-            logger.info("Writing dataset profile to %s:%s for timestamp %s", org_id, dataset_id, date_str)
-            writer.write(view)
-
-    def extract(self) -> Dict[str, bytes]:
-        out: Dict[str, bytes] = {}
-        for date_str, view in self.index.items():
-            out[date_str] = view.serialize()
-        return out
-
-
-class WhylogsProfileIndexMerger(beam.CombineFn):
+class ViewCombiner(beam.CombineFn):
     def __init__(self, args: TemplateArgs):
-        self.logger = logging.getLogger("WhylogsProfileIndexMerger")
+        self.logger = logging.getLogger("ViewCombiner")
         self.logging_level = args.logging_level
 
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
 
-    def create_accumulator(self) -> ProfileIndex:
-        return ProfileIndex()
+    def create_accumulator(self) -> DatasetProfileView:
+        return DatasetProfile().view()
 
-    def add_input(self, accumulator: ProfileIndex, input: ProfileIndex) -> ProfileIndex:
-        return accumulator.merge_index(input)
+    def add_input(self, accumulator: DatasetProfileView, input: DatasetProfileView) -> DatasetProfileView:
+        return accumulator.merge(input)
 
-    def add_inputs(self, mutable_accumulator: ProfileIndex, elements: List[ProfileIndex]) -> ProfileIndex:
-        count = 0
-        for current_index in elements:
-            mutable_accumulator.merge_index(current_index)
-            count = count + 1
-        self.logger.debug("adding %s inputs", count)
-        return mutable_accumulator
+    def merge_accumulators(self, accumulators: List[DatasetProfileView]) -> DatasetProfileView:
+        view: DatasetProfileView = DatasetProfile().view()
+        for current_view in accumulators:
+            view = view.merge(current_view)
+        return view
 
-    def merge_accumulators(self, accumulators: List[ProfileIndex]) -> ProfileIndex:
-        acc = ProfileIndex()
-        count = 0
-        for current_index in accumulators:
-            acc.merge_index(current_index)
-            count = count + 1
-        self.logger.debug("merging %s views", count)
-        return acc
-
-    def extract_output(self, accumulator: ProfileIndex) -> ProfileIndex:
+    def extract_output(self, accumulator: DatasetProfileView) -> DatasetProfileView:
         return accumulator
+
+
+class ProfileViews(beam.DoFn):
+    def __init__(self, args: TemplateArgs):
+        self.date_column = args.date_column
+        self.freq = args.date_grouping_frequency
+        self.logging_level = args.logging_level
+        self.logger = logging.getLogger("ProfileViews")
+
+    def setup(self) -> None:
+        self.logger.setLevel(logging.getLevelName(self.logging_level))
+
+    @beam.DoFn.yields_elements
+    def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[str, DatasetProfileView]]:
+        start_time = time.perf_counter()
+        tmp_date_col = "_whylogs_datetime"
+        df = pd.DataFrame(batch)
+        df[tmp_date_col] = pd.to_datetime(df[self.date_column])
+        grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
+
+        # profiles = ProfileIndex()
+        results: List[Tuple[str, DatasetProfileView]] = []
+        for date_group, dataframe in grouped:
+            # pandas includes every date in the range, not just the ones that had rows...
+            # https://github.com/pandas-dev/pandas/issues/47963
+            if len(dataframe) == 0:
+                continue
+
+            ts = date_group.to_pydatetime()
+            profile = DatasetProfile(dataset_timestamp=ts)
+            profile.track(dataframe)
+            yield (str(date_group), profile.view())
+
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        self.logger.debug(f"[{total_time:.4f}] Processing batch of size %s into %s profiles", len(batch), len(results))
 
 
 class UploadToWhylabsFn(beam.DoFn):
@@ -143,74 +100,34 @@ class UploadToWhylabsFn(beam.DoFn):
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
-    def process_batch(self, batch: List[ProfileIndex]) -> Iterator[List[ProfileIndex]]:
-        for index in batch:
-            index.upload_to_whylabs(self.logger, self.args.org_id, self.args.api_key, self.args.dataset_id)
+    def process_batch(self, batch: List[Tuple[str, DatasetProfileView]]) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
+        from whylogs.api.writer.whylabs import WhyLabsWriter
+        writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
+
+        for date_str, view in batch:
+            self.logger.info("Writing dataset profile to %s:%s for timestamp %s", self.args.org_id, self.args.dataset_id, date_str)
+            writer.write(view)
+
         yield batch
 
 
-class ProfileDoFn(beam.DoFn):
-    def __init__(self, args: TemplateArgs):
-        self.date_column = args.date_column
-        self.freq = args.date_grouping_frequency
-        self.logging_level = args.logging_level
-        self.logger = logging.getLogger("ProfileDoFn")
-
-    def setup(self) -> None:
-        self.logger.setLevel(logging.getLevelName(self.logging_level))
-
-    def _process_batch_without_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[DatasetProfileView]]:
-        self.logger.debug("Processing batch of size %s", len(batch))
-        profile = DatasetProfile()
-        profile.track(pd.DataFrame.from_dict(batch))
-        yield [profile.view()]
-
-    def _process_batch_with_date(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
-        start_time = time.perf_counter()
-        tmp_date_col = "_whylogs_datetime"
-        df = pd.DataFrame(batch)
-        df[tmp_date_col] = pd.to_datetime(df[self.date_column])
-        grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
-
-        profiles = ProfileIndex()
-        for date_group, dataframe in grouped:
-            # pandas includes every date in the range, not just the ones that had rows...
-            # https://github.com/pandas-dev/pandas/issues/47963
-            if len(dataframe) == 0:
-                continue
-
-            ts = date_group.to_pydatetime()
-            profile = DatasetProfile(dataset_timestamp=ts)
-            profile.track(dataframe)
-            profiles.set(str(date_group), profile.view())
-
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        self.logger.debug(f"[{total_time:.4f}] Processing batch of size %s into %s profiles", len(batch), len(profiles))
-
-        yield [profiles]
-
-    def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[List[ProfileIndex]]:
-        return self._process_batch_with_date(batch)
-
-
-def serialize_index(index: ProfileIndex) -> List[bytes]:
+def serialize_profiles(input: Tuple[str, DatasetProfileView]) -> List[bytes]:
     """
     This function converts a single ProfileIndex into a collection of
     serialized DatasetProfileViews so that they can subsequently be written
     individually to GCS, rather than as a giant collection that has to be
     parsed in a special way to get it back into a DatasetProfileView.
     """
-    return list(index.extract().values())
+    return [input[1].serialize()]
 
 
 class ProfileIndexBatchConverter(ListBatchConverter):
-    def estimate_byte_size(self, batch: List[ProfileIndex]) -> int:
+    def estimate_byte_size(self, batch: List[Tuple[str, DatasetProfileView]]) -> int:
         logger = logging.getLogger()
         if len(batch) == 0:
             return 0
 
-        estimate = batch[0].estimate_size()
+        estimate = len(batch[0][1].serialize())
 
         logger.debug(f"Estimating size at {estimate} bytes")
         return estimate
@@ -227,6 +144,28 @@ class InputBigQuerySQL:
 @dataclass
 class InputBigQueryTable:
     table_spec: str
+
+    def create_accumulator(self) -> DatasetProfileView:
+        return DatasetProfile().view()
+
+    def add_input(self, accumulator: DatasetProfileView, input: List[DatasetProfileView]) -> DatasetProfileView:
+        if len(input) == 0:
+            return accumulator
+
+        profile = DatasetProfile()
+        profile.track(pd.DataFrame.from_dict(input))
+        ret = accumulator.merge(profile.view())
+        return ret
+
+    def merge_accumulators(self, accumulators: List[DatasetProfileView]) -> DatasetProfileView:
+        if len(accumulators) == 1:
+            # logger.info('Returning accumulator, only one to merge')
+            return accumulators[0]
+
+        view: DatasetProfileView = DatasetProfile().view()
+        for current_view in accumulators:
+            view = view.merge(current_view)
+        return view
 
 
 @dataclass
@@ -424,20 +363,24 @@ def run() -> None:
         result = (
             p
             | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
-            | "Profile" >> beam.ParDo(ProfileDoFn(args))
-            | "Merge profiles" >> beam.CombineGlobally(WhylogsProfileIndexMerger(args)).with_output_types(ProfileIndex)
+            | "Profile" >> beam.ParDo(ProfileViews(args)).with_output_types(Tuple[str, DatasetProfileView])
+
+            # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)
+            #     .with_input_types(Tuple[str, DatasetProfileView])
+            #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
+
+            | "Merge profiles" >> beam.CombinePerKey(ViewCombiner(args))
+            .with_output_types(Tuple[str, DatasetProfileView])
         )
 
         # A fork that uploads to WhyLabs
-        result | "Upload to WhyLabs" >> (
-            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(ProfileIndex).with_output_types(ProfileIndex)
-        )
+        result | "Upload to WhyLabs" >> (beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView]))
 
         # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
         (
             result
             | "Serialize Proflies"
-            >> beam.ParDo(serialize_index).with_input_types(ProfileIndex).with_output_types(bytes)
+            >> beam.ParDo(serialize_profiles).with_input_types(Tuple[str, DatasetProfileView]).with_output_types(bytes)
             | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
         )
 
