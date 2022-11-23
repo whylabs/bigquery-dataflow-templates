@@ -19,7 +19,7 @@ jobs:
       id-token: 'write'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
@@ -38,27 +38,30 @@ jobs:
         with:
           python-version: '3.8' 
 
-      - name: Install python dependencies
-        run: make setup 
+      - name: Check python 
+        run: python --version
 
-      - name: Check types
-        run: make lint
+      # - name: Install python dependencies
+      #   run: make setup 
 
-      - name: Check formatting
-        run: make format
+      # - name: Check types
+      #   run: make lint
 
-      - name: Run test
-        run: make test
+      # - name: Check formatting
+      #   run: make format
 
-      - name: Do a test job
-        if: ${{ github.event_name == 'pull_request' }}
-        run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} API_KEY=${{secrets.WHYLABS_API_KEY}}
+      # - name: Run test
+      #   run: make test
 
-      - name: Upload template to GCS
-        run: poetry run make profile_query_template SHA=${{github.sha}}
+      # - name: Do a test job
+      #   if: ${{ github.event_name == 'pull_request' }}
+      #   run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} API_KEY=${{secrets.WHYLABS_API_KEY}}
 
-      - name: Upload template to GCS as 'latest'
-        if: ${{ github.event_name == 'push' }}
-        run: poetry run make profile_query_template_latest
+      # - name: Upload template to GCS
+      #   run: poetry run make profile_query_template SHA=${{github.sha}}
+
+      # - name: Upload template to GCS as 'latest'
+      #   if: ${{ github.event_name == 'push' }}
+      #   run: poetry run make profile_query_template_latest
 
 
