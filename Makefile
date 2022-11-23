@@ -135,7 +135,7 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--env=FLEX_TEMPLATE_PYTHON_PY_FILE=ai/whylabs/templates/$(NAME).py \
 		--env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=template_requirements.txt \
 		--py-path=src/ \
-		--py-path=template-template_requirements.txt \
+		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
 
 version_metadata:
