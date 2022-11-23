@@ -9,7 +9,7 @@ on:
 jobs:
   publish_templates:
     name: Push the latest versions of the templates to GCS
-    timeout-minutes: 15
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     container:
       image: google/cloud-sdk
