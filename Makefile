@@ -25,7 +25,7 @@ profile_query_template: NAME=profile_query_template
 profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 integ: REQUIREMENTS=integ_requirements.txt
-integ: example_run_direct_table integ_requirements.txt
+integ: integ_requirements.txt example_run_direct_table 
 
 example_run_direct_table: JOB_NAME=$(NAME)
 example_run_direct_table: TEMPLATE=profile_query_template
