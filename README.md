@@ -9,6 +9,24 @@ TBD, writing in progress. Reach out to us on [slack](https://whylabs.ai/slack-co
 
 - Profile Query Template: Convert a BigQuery SQL query into a collection of whylogs dataset profiles. Ideal for regular batch jobs over a small number of days.
 
+
+
+# Running
+
+## Flex Template via CLI
+`make run_template`
+
+## Flex Template via Console
+
+## Schedule Flex Template via CLI 
+
+## Schedule Flex Template via Console
+
+## Directly via CLI
+`profile_query_local_query`
+
+
+
 # Development
 Here are the setup instructions under Ubuntu/WSL.
 

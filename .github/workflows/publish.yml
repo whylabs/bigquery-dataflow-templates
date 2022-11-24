@@ -9,7 +9,7 @@ on:
 jobs:
   publish_templates:
     name: Push the latest versions of the templates to GCS
-    timeout-minutes: 15
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     container:
       image: google/cloud-sdk
@@ -19,7 +19,7 @@ jobs:
       id-token: 'write'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
@@ -28,18 +28,31 @@ jobs:
           workload_identity_provider: 'projects/205017367875/locations/global/workloadIdentityPools/github-ci/providers/dataflow-templates-ci'
           service_account: 'dataflow-template-github-ci@whylogs-359820.iam.gserviceaccount.com'
 
-      - uses: abatilo/actions-poetry@v2
-        name: Install poetry
-        with:
-          poetry-version: 1.2.2 
-
       - uses: actions/setup-python@v4
         name: Install Python
         with:
           python-version: '3.8' 
 
+      - uses: Gr1N/setup-poetry@v7
+        name: Install poetry
+        with:
+          poetry-version: 1.2.2 
+
       - name: Install python dependencies
         run: make setup 
+
+      - name: Check types
+        run: make lint
+
+      - name: Check formatting
+        run: make format
+
+      - name: Run test
+        run: make test
+
+      - name: Do a test job
+        if: ${{ github.event_name == 'pull_request' }}
+        run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} WHYLABS_API_KEY=${{secrets.WHYLABS_API_KEY}}
 
       - name: Upload template to GCS
         run: poetry run make profile_query_template SHA=${{github.sha}}
