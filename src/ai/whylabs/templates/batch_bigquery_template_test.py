@@ -1,4 +1,4 @@
-from . import profile_query_template as p
+from . import batch_bigquery_template as p
 import pytest
 from dateutil import tz
 

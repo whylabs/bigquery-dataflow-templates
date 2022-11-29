@@ -10,24 +10,24 @@ SHA=$(shell git rev-parse HEAD)
 VERSION=$(SHA)
 REQUIREMENTS=requirements.txt
 
-.PHONY: default profile_query_template upload_template 
+.PHONY: default batch_bigquery_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
 .PHONY: lint format format-fix test setup version_metadata help
 
 default:help
 
-profile_query_template_latest: NAME=profile_query_template
-profile_query_template_latest: VERSION=latest
-profile_query_template_latest: upload_template version_metadata ## Upload the dataflow template as the `latest` tag. 
+batch_bigquery_template_latest: NAME=batch_bigquery_template
+batch_bigquery_template_latest: VERSION=latest
+batch_bigquery_template_latest: upload_template version_metadata ## Upload the dataflow template as the `latest` tag. 
 
-profile_query_template: NAME=profile_query_template
-profile_query_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
+batch_bigquery_template: NAME=batch_bigquery_template
+batch_bigquery_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 integ: REQUIREMENTS=integ_requirements.txt
 integ: integ_requirements.txt example_run_direct_table 
 
 example_run_direct_table: JOB_NAME=$(NAME)
-example_run_direct_table: TEMPLATE=profile_query_template
+example_run_direct_table: TEMPLATE=batch_bigquery_template
 example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
@@ -49,7 +49,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--requirements_file=$(REQUIREMENTS)
 
 example_run_direct_query: JOB_NAME=$(NAME)
-example_run_direct_query: TEMPLATE=profile_query_template
+example_run_direct_query: TEMPLATE=batch_bigquery_template
 example_run_direct_query: requirements.txt ## Run the profile directly, job without templatizing it first.
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
@@ -70,7 +70,7 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 
 example_run_template_table: JOB_NAME=$(NAME)
 example_run_template_table: REGION=us-central1
-example_run_template_table: TEMPLATE=profile_query_template
+example_run_template_table: TEMPLATE=batch_bigquery_template
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -90,7 +90,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 
 example_run_template_query: JOB_NAME=$(NAME)
 example_run_template_query: REGION=us-central1
-example_run_template_query: TEMPLATE=profile_query_template
+example_run_template_query: TEMPLATE=batch_bigquery_template
 example_run_template_query: SHA=latest
 example_run_template_query: ## Run the Profile Template in query mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -109,7 +109,7 @@ example_run_template_query: ## Run the Profile Template in query mode
 
 example_run_template_offset: JOB_NAME=$(NAME)
 example_run_template_offset: REGION=us-central1
-example_run_template_offset: TEMPLATE=profile_query_template
+example_run_template_offset: TEMPLATE=batch_bigquery_template
 example_run_template_offset: SHA=latest
 example_run_template_offset: ## Run the Profile Template in offset mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
