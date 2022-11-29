@@ -51,7 +51,6 @@ jobs:
         run: make test
 
       - name: Do a test job
-        if: ${{ github.event_name == 'pull_request' }}
         run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} WHYLABS_API_KEY=${{secrets.WHYLABS_API_KEY}}
 
       - name: Upload template to GCS
