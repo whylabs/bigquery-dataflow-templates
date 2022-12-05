@@ -49,11 +49,27 @@ jobs:
         run: make test
 
       - name: Upload template to GCS
+        if: ${{ github.event_name == 'pull_request' }}
         run: poetry run make batch_bigquery_template SHA=${{github.sha}}
 
       - name: Do a test job
-        run: make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} WHYLABS_API_KEY=${{secrets.WHYLABS_API_KEY}} SHA=${{github.sha}}
+        if: ${{ github.event_name == 'pull_request' }}
+        run: | 
+          echo "Use the GCP console to verify that this test succeeds for the manual approval https://console.cloud.google.com/dataflow/jobs?project=whylogs-359820"
+          make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} \
+            SHA=${{github.sha}} \
+            WHYLABS_API_KEY=${{secrets.WHYLABS_API_KEY}} 
 
       - name: Upload template to GCS as 'latest'
         if: ${{ github.event_name == 'push' }}
         run: poetry run make batch_bigquery_template_latest
+
+  approve_integ_test:
+    name: Approve the integ test from the main workflow in GCS console
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    environment: 
+      name: main
+
+    steps:
+      - uses: actions/checkout@v3
