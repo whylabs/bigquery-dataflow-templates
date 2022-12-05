@@ -144,10 +144,10 @@ version_metadata:
 requirements: requirements.txt template_requirements.txt integ_requirements.txt
 
 requirements.txt: pyproject.toml
-	poetry export -f requirements.txt > requirements.txt
+	poetry export -f requirements.txt --with dev > requirements.txt
 
 template_requirements.txt: pyproject.toml
-	poetry export -f requirements.txt --without dev --with beam > template_requirements.txt
+	poetry export -f requirements.txt --without dev > template_requirements.txt
 
 integ_requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --without dev > integ_requirements.txt
