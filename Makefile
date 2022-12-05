@@ -12,7 +12,7 @@ REQUIREMENTS=requirements.txt
 
 .PHONY: default batch_bigquery_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
-.PHONY: lint format format-fix test setup version_metadata help
+.PHONY: lint format format-fix test setup version_metadata help requirements
 
 default:help
 
@@ -23,8 +23,7 @@ batch_bigquery_template_latest: upload_template version_metadata ## Upload the d
 batch_bigquery_template: NAME=batch_bigquery_template
 batch_bigquery_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
-integ: REQUIREMENTS=integ_requirements.txt
-integ: integ_requirements.txt example_run_direct_table 
+integ: example_run_template_table
 
 example_run_direct_table: JOB_NAME=$(NAME)
 example_run_direct_table: TEMPLATE=batch_bigquery_template
@@ -142,11 +141,13 @@ version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
 	gcloud storage cp /tmp/version_$(SHA).sha $(TEMPLATE_LOCATION)/$(VERSION)/version.sha
 
+requirements: requirements.txt template_requirements.txt integ_requirements.txt
+
 requirements.txt: pyproject.toml
 	poetry export -f requirements.txt > requirements.txt
 
 template_requirements.txt: pyproject.toml
-	poetry export -f requirements.txt --without dev --without beam > template_requirements.txt
+	poetry export -f requirements.txt --without dev --with beam > template_requirements.txt
 
 integ_requirements.txt: pyproject.toml
 	poetry export -f requirements.txt --without dev > integ_requirements.txt
