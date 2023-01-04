@@ -25,6 +25,29 @@ batch_bigquery_template: upload_template version_metadata ## Upload the dataflow
 
 integ: example_run_template_table
 
+example_run_direct_table_btc: JOB_NAME=$(NAME)
+example_run_direct_table_btc: TEMPLATE=batch_bigquery_template
+example_run_direct_table_btc: requirements.txt ## Run the profile directly, job without templatizing it first.
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(JOB_NAME)" \
+		--input-mode=BIGQUERY_TABLE \
+		--input-bigquery-table=whylogs-359820.btc_cash.transactions \
+		--date-column=block_timestamp \
+		--date-grouping-frequency=Y \
+		--org-id=org-0 \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--staging_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/staging \
+		--temp_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/tmp \
+		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-42 \
+		--num-workers 68 \
+		--requirements_file=$(REQUIREMENTS)
+
 example_run_direct_table: JOB_NAME=$(NAME)
 example_run_direct_table: TEMPLATE=batch_bigquery_template
 example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
@@ -83,7 +106,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
-		--num-workers 300
+		--num-workers 68
 
 
 
@@ -103,7 +126,7 @@ example_run_template_query: ## Run the Profile Template in query mode
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
-		--num-workers 300
+		--num-workers 68
 
 
 example_run_template_offset: JOB_NAME=$(NAME)
@@ -123,7 +146,7 @@ example_run_template_offset: ## Run the Profile Template in offset mode
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
-		--num-workers 300
+		--num-workers 68
 
 
 upload_template: template_requirements.txt # Base target for other targets to use. Set the NAME, VERSION

@@ -82,8 +82,14 @@ class ProfileViews(beam.DoFn):
             if len(dataframe) == 0:
                 continue
 
-            ts = date_group.to_pydatetime()
+            ts: datetime = date_group.to_pydatetime()
             profile = DatasetProfile(dataset_timestamp=ts)
+            self.logger.debug(
+                "Created dataset profile with timestamp %s for grouper date %s, tzinfo %s",
+                profile.dataset_timestamp,
+                ts,
+                ts.tzinfo,
+            )
             profile.track(dataframe)
             yield (str(date_group), profile.view())
 
@@ -109,8 +115,9 @@ class UploadToWhylabsFn(beam.DoFn):
 
         for date_str, view in batch:
             self.logger.info(
-                "Writing dataset profile to %s:%s for timestamp %s", self.args.org_id, self.args.dataset_id, date_str
+                "Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str
             )
+            self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
             writer.write(view)
 
         yield batch
@@ -384,7 +391,7 @@ def run() -> None:
         # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
         (
             result
-            | "Serialize Proflies"
+            | "Serialize Profiles"
             >> beam.ParDo(serialize_profiles).with_input_types(Tuple[str, DatasetProfileView]).with_output_types(bytes)
             | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
         )

@@ -9,7 +9,7 @@ packages = [{include = "src/**/*.py"}]
 
 [tool.poetry.dependencies]
 python = "3.8.*"
-whylogs = {version = "1.1.12", extras = ["whylabs"]}
+whylogs = {extras = ["whylabs"], version = "^1.1.20"}
 pandas = "^1.5.1"
 python-dateutil = "^2.8.2"
 
