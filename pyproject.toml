@@ -2,7 +2,7 @@
 name = "dataflow-templates"
 version = "0.1.0"
 description = "Templates for use in GCP's Dataflow."
-authors = ["Anthony Naddeo <anthony.naddeo@gmail.com>"]
+authors = ["Anthony Naddeo <anthony@whylabs.ai>", "support@whylabs.ai"]
 license = "Apache-2.0 license"
 readme = "README.md"
 packages = [{include = "src/**/*.py"}]
