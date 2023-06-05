@@ -210,6 +210,7 @@ def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputB
                 f"Missing input_bigquery_table. Should pass in a fully qualified table name of the form PROJECT:DATASET.TABLE when using input_mode {INPUT_MODE_BIGQUERY_TABLE}"
             )
         return InputBigQueryTable(table_spec=args.input_bigquery_table)
+    
     elif args.input_mode == INPUT_MODE_OFFSET:
         if args.input_offset is None:
             raise Exception(
