@@ -54,8 +54,8 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_TABLE \
-		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
-		--date-column=time_ts \
+		--input-bigquery-table=bigquery-public-data.hacker_news.full \
+		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
@@ -69,6 +69,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--runner=DataflowRunner \
 		--dataset-id=model-42 \
 		--requirements_file=$(REQUIREMENTS)
+		--segment_column=month
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template

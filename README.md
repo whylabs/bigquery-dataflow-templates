@@ -22,6 +22,7 @@ Here are the setup instructions under Ubuntu/WSL.
 - Set local python version to 3.8: `pyenv install 3.8 && pyenv local 3.8`
 - Explicitly set python version: `poetry env use $(which python)`
 - Install dependencies and generate a local virtual env for IDE/tooling: `poetry install`
+- For local development, make sure to authenticate to GCP with: `gcloud auth application-default login`
 
 
 [doc page]:https://docs.whylabs.ai/docs/integrations-bigquery-dataflow

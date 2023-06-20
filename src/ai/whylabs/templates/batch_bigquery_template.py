@@ -14,7 +14,7 @@ from dateutil import tz
 import whylogs as why
 from whylogs.core.schema import DatasetSchema
 from whylogs.core import DatasetProfile, DatasetProfileView
-from whylogs.api.logger import ResultSet, ViewResultSet
+from whylogs.api.logger.result_set import ResultSet, ViewResultSet
 from whylogs.core.segmentation_partition import segment_on_column
 
 
@@ -38,9 +38,9 @@ class TemplateArgs:
     segment_column: Optional[str]
 
 
-class ViewCombiner(beam.CombineFn):
+class ResultSetCombiner(beam.CombineFn):
     def __init__(self, args: TemplateArgs):
-        self.logger = logging.getLogger("ViewCombiner")
+        self.logger = logging.getLogger("ResultSetCombiner")
         self.logging_level = args.logging_level
 
     def setup(self) -> None:
@@ -109,12 +109,12 @@ class ResultSets(beam.DoFn):
             
             result_set = why.log(dataframe, schema=DatasetSchema(column_segments))
             result_set.set_dataset_timestamp(ts)
-            self.logger.debug(
-                "Created dataset profile with timestamp %s for grouper date %s, tzinfo %s",
-                result_set.dataset_timestamp,
-                ts,
-                ts.tzinfo,
-            )
+            # self.logger.debug(
+            #     "Created dataset profile with timestamp %s for grouper date %s, tzinfo %s",
+            #     result_set.dataset_timestamp,
+            #     ts,
+            #     ts.tzinfo,
+            # )
             
             yield (str(date_group), result_set)
 
@@ -138,7 +138,7 @@ class UploadToWhylabsFn(beam.DoFn):
             self.logger.info(
                 "Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str
             )
-            self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
+            # self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
             view.writer("whylabs").option(
                 org_id=self.args.org_id, 
                 api_key=self.args.api_key, 
@@ -151,7 +151,7 @@ class UploadToWhylabsFn(beam.DoFn):
 def serialize_profiles(input: Tuple[str, ResultSet]) -> List[bytes]:
     """
     This function converts a single ProfileIndex into a collection of
-    serialized DatasetProfileViews so that they can subsequently be written
+    serialized ResultSets so that they can subsequently be written
     individually to GCS, rather than as a giant collection that has to be
     parsed in a special way to get it back into a DatasetProfileView.
     """
@@ -376,6 +376,7 @@ def run() -> None:
         help="An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.",
     )
     parser.add_argument("--output", dest="output", required=True, help="Output file or gs:// path to write results to.")
+    parser.add_argument("--segment_column", dest="segment_column", required=False, help="The column to segment the dataset on. Currently supports only one column for segmentation")
 
     known_args, pipeline_args = parser.parse_known_args()
     pipeline_options = PipelineOptions(pipeline_args)
@@ -396,6 +397,7 @@ def run() -> None:
         logging_level=known_args.logging_level,
         date_column=known_args.date_column,
         date_grouping_frequency=known_args.date_grouping_frequency,
+        segment_column=known_args.segment_column
     )
 
     logger = logging.getLogger()
