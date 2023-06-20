@@ -57,7 +57,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--input-bigquery-table=bigquery-public-data.hacker_news.full \
 		--date-column=timestamp \
 		--date-grouping-frequency=Y \
-		--org-id=org-0 \
+		--org-id=org-fjx9Rz \
 		--project=whylogs-359820 \
 		--region=$(REGION) \
 		--logging-level=DEBUG \
@@ -67,7 +67,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--dataset-id=model-42 \
+		--dataset-id=model-11 \
 		--requirements_file=$(REQUIREMENTS)
 		--segment_column=month
 
