@@ -53,8 +53,8 @@ example_run_direct_table: TEMPLATE=batch_bigquery_template
 example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
-		--input-mode=BIGQUERY_TABLE \
-		--input-bigquery-table=bigquery-public-data.hacker_news.full \
+		--input-mode=BIGQUERY_SQL \
+		--input-bigquery-sql="SELECT * FROM bigquery-public-data.hacker_news.full" \
 		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-fjx9Rz \
@@ -68,8 +68,8 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
 		--dataset-id=model-11 \
-		--requirements_file=$(REQUIREMENTS)
-		--segment_column=month
+		--requirements_file=$(REQUIREMENTS) \
+		--segment_column=type
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template
