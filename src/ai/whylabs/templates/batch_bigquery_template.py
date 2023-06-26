@@ -3,7 +3,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, NamedTuple
 
 import apache_beam as beam
 import pandas as pd
@@ -14,7 +14,7 @@ from dateutil import tz
 import whylogs as why
 from whylogs.core.schema import DatasetSchema
 from whylogs.core import DatasetProfile, DatasetProfileView
-from whylogs.core.segmentation_partition import segment_on_column
+from whylogs.core.segmentation_partition import segment_on_column, SegmentationPartition
 from whylogs.core.segment import Segment
 from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetProfileView
 
@@ -87,11 +87,11 @@ class InputOffset:
     query: str
 
 
-@dataclass
-class SegmentDefinition:
+class SegmentDefinition(NamedTuple):
     segment: Segment
     date_group: str
-
+    # partition: SegmentationPartition
+    
 
 class ProfileViews(beam.DoFn):
     def __init__(self, args: TemplateArgs):
@@ -124,7 +124,7 @@ class ProfileViews(beam.DoFn):
             if len(dataframe) == 0:
                 continue
             
-            result_set = why.log(dataframe, schema=DatasetSchema(column_segments))
+            result_set = why.log(dataframe, schema=DatasetSchema(segments=column_segments))
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
                 
@@ -173,18 +173,19 @@ class UploadToWhylabsFn(beam.DoFn):
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
     def process_batch(
-        self, batch: List[Tuple[str, DatasetProfileView]]
-    ) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
+        self, batch: List[Tuple[SegmentDefinition, DatasetProfileView]]
+    ) -> Iterator[List[Tuple[SegmentDefinition, DatasetProfileView]]]:
         from whylogs.api.writer.whylabs import WhyLabsWriter
 
         writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
 
-        for date_str, view in batch:
+        for seg_def, view in batch:
             self.logger.info(
-                "Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str
+                "Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id
             )
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
-            writer.write(view)
+            seg_view = SegmentedDatasetProfileView(profile_view=view, segment=seg_def.segment) 
+            writer.write(seg_view)
 
         yield batch
 
@@ -408,13 +409,13 @@ def run() -> None:
             #     .with_input_types(Tuple[str, DatasetProfileView])
             #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
             | "Merge profiles"
-            >> beam.CombinePerKey(ViewCombiner(args)).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
+            >> beam.CombinePerKey(ViewCombiner(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView]).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
         )
 
-        # # A fork that uploads to WhyLabs
-        # result | "Upload to WhyLabs" >> (
-        #     beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
-        # )
+        # A fork that uploads to WhyLabs
+        result | "Upload to WhyLabs" >> (
+            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
+        )
 
         # # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
         # (
