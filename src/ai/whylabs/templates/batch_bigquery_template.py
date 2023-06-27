@@ -14,7 +14,7 @@ from dateutil import tz
 import whylogs as why
 from whylogs.core.schema import DatasetSchema
 from whylogs.core import DatasetProfile, DatasetProfileView
-from whylogs.core.segmentation_partition import segment_on_column, SegmentationPartition
+from whylogs.core.segmentation_partition import segment_on_column
 from whylogs.core.segment import Segment
 from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetProfileView
 
@@ -88,9 +88,9 @@ class InputOffset:
 
 
 class SegmentDefinition(NamedTuple):
+    segment_column: str
     segment: Segment
     date_group: str
-    # partition: SegmentationPartition
     
 
 class ProfileViews(beam.DoFn):
@@ -112,9 +112,9 @@ class ProfileViews(beam.DoFn):
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
         
-        # col_to_seg = self.segment_column or "type"
+        col_to_seg = self.segment_column or "type"
         
-        # self.logger.info(f"Using {self.segment_column} for segmentation")
+        self.logger.info(f"Using {self.segment_column} for segmentation")
         
         column_segments = segment_on_column("type")
         
@@ -129,6 +129,7 @@ class ProfileViews(beam.DoFn):
             for segmented_view in views_list:
                 
                 seg_def = SegmentDefinition(
+                    segment_column=self.segment_column,
                     segment=segmented_view.segment,
                     date_group=str(date_group)
                 )
@@ -184,7 +185,12 @@ class UploadToWhylabsFn(beam.DoFn):
                 "Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id
             )
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
-            seg_view = SegmentedDatasetProfileView(profile_view=view, segment=seg_def.segment) 
+            
+            seg_view = SegmentedDatasetProfileView(
+                profile_view=view, 
+                segment=seg_def.segment, 
+                partition=segment_on_column(column_name=seg_def.segment_column)[seg_def.segment_column]
+            ) 
             writer.write(seg_view)
 
         yield batch
@@ -417,13 +423,13 @@ def run() -> None:
             beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
         )
 
-        # # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
-        # (
-        #     result
-        #     | "Serialize Profiles"
-        #     >> beam.ParDo(serialize_profiles).with_input_types(Tuple[str, DatasetProfileView]).with_output_types(bytes)
-        #     | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
-        # )
+        # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
+        (
+            result
+            | "Serialize Profiles"
+            >> beam.ParDo(serialize_profiles).with_input_types(Tuple[SegmentDefinition, DatasetProfileView]).with_output_types(bytes)
+            | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
+        )
 
 
 if __name__ == "__main__":
