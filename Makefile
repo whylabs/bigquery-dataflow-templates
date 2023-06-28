@@ -53,8 +53,30 @@ example_run_direct_table: TEMPLATE=batch_bigquery_template
 example_run_direct_table: requirements.txt ## Run the profile directly, job without templatizing it first.
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
-		--input-mode=BIGQUERY_SQL \
-		--input-bigquery-sql="SELECT * FROM bigquery-public-data.hacker_news.full" \
+		--input-mode=BIGQUERY_TABLE \
+		--input-bigquery-sql=bigquery-public-data.hacker_news.full \
+		--date-column=timestamp \
+		--date-grouping-frequency=Y \
+		--org-id=org-fjx9Rz \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--staging_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/staging \
+		--temp_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/tmp \
+		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-11 \
+		--requirements_file=$(REQUIREMENTS)
+
+example_run_direct_segmented_table: JOB_NAME=$(NAME)
+example_run_direct_segmented_table: TEMPLATE=batch_segmented_bigquery
+example_run_direct_segmented_table: requirements.txt ## Run the profile directly, job without templatizing it first.
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(JOB_NAME)" \
+		--input-mode=BIGQUERY_TABLE \
+		--input-bigquery-table=bigquery-public-data.hacker_news.full \
 		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-fjx9Rz \

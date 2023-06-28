@@ -3,7 +3,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, NamedTuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import apache_beam as beam
 import pandas as pd
@@ -11,21 +11,7 @@ from apache_beam.io import ReadFromBigQuery, WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 from apache_beam.typehints.batch import BatchConverter, ListBatchConverter
 from dateutil import tz
-import whylogs as why
-from whylogs.core.schema import DatasetSchema
 from whylogs.core import DatasetProfile, DatasetProfileView
-from whylogs.core.segmentation_partition import segment_on_column
-from whylogs.core.segment import Segment
-from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetProfileView
-
-
-# Values for Input Mode. These can't be an enum because enums lead
-# to pickling errors when you run the pipeline if they're defined at
-# the top level.
-INPUT_MODE_BIGQUERY_SQL = "BIGQUERY_SQL"
-INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
-INPUT_MODE_OFFSET = "OFFSET"
-
 
 
 @dataclass
@@ -44,7 +30,122 @@ class TemplateArgs:
     logging_level: str
     date_column: str
     date_grouping_frequency: str
-    segment_column: Optional[str]
+
+
+class ViewCombiner(beam.CombineFn):
+    def __init__(self, args: TemplateArgs):
+        self.logger = logging.getLogger("ViewCombiner")
+        self.logging_level = args.logging_level
+
+    def setup(self) -> None:
+        self.logger.setLevel(logging.getLevelName(self.logging_level))
+
+    def create_accumulator(self) -> DatasetProfileView:
+        return DatasetProfile().view()
+
+    def add_input(self, accumulator: DatasetProfileView, input: DatasetProfileView) -> DatasetProfileView:
+        return accumulator.merge(input)
+
+    def merge_accumulators(self, accumulators: List[DatasetProfileView]) -> DatasetProfileView:
+        view: DatasetProfileView = DatasetProfile().view()
+        for current_view in accumulators:
+            view = view.merge(current_view)
+        return view
+
+    def extract_output(self, accumulator: DatasetProfileView) -> DatasetProfileView:
+        return accumulator
+
+
+class ProfileViews(beam.DoFn):
+    def __init__(self, args: TemplateArgs):
+        self.date_column = args.date_column
+        self.freq = args.date_grouping_frequency
+        self.logging_level = args.logging_level
+        self.logger = logging.getLogger("ProfileViews")
+
+    def setup(self) -> None:
+        self.logger.setLevel(logging.getLevelName(self.logging_level))
+
+    @beam.DoFn.yields_elements
+    def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[str, DatasetProfileView]]:
+        start_time = time.perf_counter()
+        tmp_date_col = "_whylogs_datetime"
+        df = pd.DataFrame(batch)
+        df[tmp_date_col] = pd.to_datetime(df[self.date_column])
+        grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
+
+        # profiles = ProfileIndex()
+        results: List[Tuple[str, DatasetProfileView]] = []
+        for date_group, dataframe in grouped:
+            # pandas includes every date in the range, not just the ones that had rows...
+            # https://github.com/pandas-dev/pandas/issues/47963
+            if len(dataframe) == 0:
+                continue
+
+            ts: datetime = date_group.to_pydatetime()
+            profile = DatasetProfile(dataset_timestamp=ts)
+            self.logger.debug(
+                "Created dataset profile with timestamp %s for grouper date %s, tzinfo %s",
+                profile.dataset_timestamp,
+                ts,
+                ts.tzinfo,
+            )
+            profile.track(dataframe)
+            yield (str(date_group), profile.view())
+
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        self.logger.debug(f"[{total_time:.4f}] Processing batch of size %s into %s profiles", len(batch), len(results))
+
+
+class UploadToWhylabsFn(beam.DoFn):
+    def __init__(self, args: TemplateArgs):
+        self.args = args
+        self.logger = logging.getLogger("UploadToWhylabsFn")
+
+    def setup(self) -> None:
+        self.logger.setLevel(logging.getLevelName(self.args.logging_level))
+
+    def process_batch(
+        self, batch: List[Tuple[str, DatasetProfileView]]
+    ) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
+        from whylogs.api.writer.whylabs import WhyLabsWriter
+
+        writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
+
+        for date_str, view in batch:
+            self.logger.info(
+                "Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str
+            )
+            self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
+            writer.write(view)
+
+        yield batch
+
+
+def serialize_profiles(input: Tuple[str, DatasetProfileView]) -> List[bytes]:
+    """
+    This function converts a single ProfileIndex into a collection of
+    serialized DatasetProfileViews so that they can subsequently be written
+    individually to GCS, rather than as a giant collection that has to be
+    parsed in a special way to get it back into a DatasetProfileView.
+    """
+    return [input[1].serialize()]
+
+
+class ProfileIndexBatchConverter(ListBatchConverter):
+    def estimate_byte_size(self, batch: List[Tuple[str, DatasetProfileView]]) -> int:
+        logger = logging.getLogger()
+        if len(batch) == 0:
+            return 0
+
+        estimate = len(batch[0][1].serialize())
+
+        logger.debug(f"Estimating size at {estimate} bytes")
+        return estimate
+
+
+BatchConverter.register(ProfileIndexBatchConverter)
 
 
 @dataclass
@@ -87,140 +188,12 @@ class InputOffset:
     query: str
 
 
-class SegmentDefinition(NamedTuple):
-    segment_column: str
-    segment: Segment
-    date_group: str
-    
-
-class ProfileViews(beam.DoFn):
-    def __init__(self, args: TemplateArgs):
-        self.date_column = args.date_column
-        self.freq = args.date_grouping_frequency
-        self.logging_level = args.logging_level
-        self.logger = logging.getLogger("ProfileViews")
-        self.segment_column = args.segment_column
-
-    def setup(self) -> None:
-        self.logger.setLevel(logging.getLevelName(self.logging_level))
-
-    @beam.DoFn.yields_elements
-    def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[SegmentDefinition, DatasetProfileView]]:
-        start_time = time.perf_counter()
-        tmp_date_col = "_whylogs_datetime"
-        df = pd.DataFrame(batch)
-        df[tmp_date_col] = pd.to_datetime(df[self.date_column])
-        grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
-        
-        col_to_seg = self.segment_column or "type"
-        
-        self.logger.info(f"Using {self.segment_column} for segmentation")
-        
-        column_segments = segment_on_column("type")
-        
-        for date_group, dataframe in grouped:
-            # pandas includes every date in the range, not just the ones that had rows...
-            # https://github.com/pandas-dev/pandas/issues/47963
-            if len(dataframe) == 0:
-                continue
-            
-            result_set = why.log(dataframe, schema=DatasetSchema(segments=column_segments))
-            views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
-            for segmented_view in views_list:
-                
-                seg_def = SegmentDefinition(
-                    segment_column=self.segment_column,
-                    segment=segmented_view.segment,
-                    date_group=str(date_group)
-                )
-                yield (seg_def, segmented_view.profile_view)    
-            
-
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        self.logger.debug(f"[{total_time:.4f}] of processing time!")
-
-
-class ViewCombiner(beam.CombineFn):
-    def __init__(self, args: TemplateArgs):
-        self.logger = logging.getLogger("ViewCombiner")
-        self.logging_level = args.logging_level
-
-    def setup(self) -> None:
-        self.logger.setLevel(logging.getLevelName(self.logging_level))
-
-    def create_accumulator(self) -> DatasetProfileView:
-        return DatasetProfile().view()
-
-    def add_input(self, accumulator: DatasetProfileView, input: DatasetProfileView) -> DatasetProfileView:
-        return accumulator.merge(input)
-
-    def merge_accumulators(self, accumulators: List[DatasetProfileView]) -> DatasetProfileView:
-        view: DatasetProfileView = DatasetProfile().view()
-        for current_view in accumulators:
-            view = view.merge(current_view)
-        return view
-
-    def extract_output(self, accumulator: DatasetProfileView) -> DatasetProfileView:
-        return accumulator
-
-
-class UploadToWhylabsFn(beam.DoFn):
-    def __init__(self, args: TemplateArgs):
-        self.args = args
-        self.logger = logging.getLogger("UploadToWhylabsFn")
-
-    def setup(self) -> None:
-        self.logger.setLevel(logging.getLevelName(self.args.logging_level))
-
-    def process_batch(
-        self, batch: List[Tuple[SegmentDefinition, DatasetProfileView]]
-    ) -> Iterator[List[Tuple[SegmentDefinition, DatasetProfileView]]]:
-        from whylogs.api.writer.whylabs import WhyLabsWriter
-
-        writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
-
-        for seg_def, view in batch:
-            self.logger.info(
-                "Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id
-            )
-            self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
-            
-            seg_view = SegmentedDatasetProfileView(
-                profile_view=view, 
-                segment=seg_def.segment, 
-                partition=segment_on_column(column_name=seg_def.segment_column)[seg_def.segment_column]
-            ) 
-            writer.write(seg_view)
-
-        yield batch
-
-
-def serialize_profiles(input: Tuple[SegmentDefinition, DatasetProfileView]) -> List[bytes]:
-    """
-    This function converts a single ProfileIndex into a collection of
-    serialized DatasetProfileViews so that they can subsequently be written
-    individually to GCS, rather than as a giant collection that has to be
-    parsed in a special way to get it back into a DatasetProfileView.
-    """
-    return [input[1].serialize()]
-
-
-class ProfileIndexBatchConverter(ListBatchConverter):
-    def estimate_byte_size(self, batch: List[Tuple[SegmentDefinition, DatasetProfileView]]) -> int:
-        logger = logging.getLogger()
-        if len(batch) == 0:
-            return 0
-
-        estimate = len(batch[0][1].serialize())
-
-        logger.debug(f"Estimating size at {estimate} bytes")
-        return estimate
-
-
-BatchConverter.register(ProfileIndexBatchConverter)
-
-
+# Values for Input Mode. These can't be an enum because enums lead
+# to pickling errors when you run the pipeline if they're defined at
+# the top level.
+INPUT_MODE_BIGQUERY_SQL = "BIGQUERY_SQL"
+INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
+INPUT_MODE_OFFSET = "OFFSET"
 
 
 def get_input(args: TemplateArgs) -> Union[InputOffset, InputBigQuerySQL, InputBigQueryTable]:
@@ -370,13 +343,6 @@ def run() -> None:
         help="An api key for the organization. This can be generated from the Settings menu of your WhyLabs account.",
     )
     parser.add_argument("--output", dest="output", required=True, help="Output file or gs:// path to write results to.")
-    parser.add_argument(
-        "--segment_column", 
-        dest="segment_column", 
-        required=False, 
-        help="The column to segment the dataset. Currently supports only one column for segmentation"
-    )
-
 
     known_args, pipeline_args = parser.parse_known_args()
     pipeline_options = PipelineOptions(pipeline_args)
@@ -397,7 +363,6 @@ def run() -> None:
         logging_level=known_args.logging_level,
         date_column=known_args.date_column,
         date_grouping_frequency=known_args.date_grouping_frequency,
-        segment_column=known_args.segment_column
     )
 
     logger = logging.getLogger()
@@ -410,24 +375,24 @@ def run() -> None:
         result = (
             p
             | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
-            | "Profile" >> beam.ParDo(ProfileViews(args)).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
+            | "Profile" >> beam.ParDo(ProfileViews(args)).with_output_types(Tuple[str, DatasetProfileView])
             # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)
             #     .with_input_types(Tuple[str, DatasetProfileView])
             #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
             | "Merge profiles"
-            >> beam.CombinePerKey(ViewCombiner(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView]).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
+            >> beam.CombinePerKey(ViewCombiner(args)).with_output_types(Tuple[str, DatasetProfileView])
         )
 
         # A fork that uploads to WhyLabs
         result | "Upload to WhyLabs" >> (
-            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
+            beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView])
         )
 
         # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
         (
             result
             | "Serialize Profiles"
-            >> beam.ParDo(serialize_profiles).with_input_types(Tuple[SegmentDefinition, DatasetProfileView]).with_output_types(bytes)
+            >> beam.ParDo(serialize_profiles).with_input_types(Tuple[str, DatasetProfileView]).with_output_types(bytes)
             | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
         )
 
