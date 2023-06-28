@@ -89,7 +89,7 @@ example_run_direct_segmented_table: requirements.txt ## Run the profile directly
 		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--dataset-id=model-11 \
+		--dataset-id=model-12 \
 		--requirements_file=$(REQUIREMENTS) \
 		--segment_column=type
 
