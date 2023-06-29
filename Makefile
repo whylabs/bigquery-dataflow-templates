@@ -163,7 +163,7 @@ example_run_template_segmented_table: JOB_NAME=$(NAME)
 example_run_template_segmented_table: REGION=us-central1
 example_run_template_segmented_table: TEMPLATE=batch_segmemted_bigquery
 example_run_template_segmented_table: SHA=latest
-example_run_template_segmented_table: ## Run the Profile Template in table mode
+example_run_template_segmented_table: ## Run the Segmented Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
 		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=BIGQUERY_TABLE \
