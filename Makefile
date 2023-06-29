@@ -10,7 +10,7 @@ SHA=$(shell git rev-parse HEAD)
 VERSION=$(SHA)
 REQUIREMENTS=requirements.txt
 
-.PHONY: default batch_bigquery_template upload_template 
+.PHONY: default batch_bigquery_template batch_segmemted_bigquery upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
 .PHONY: lint format format-fix test setup version_metadata help requirements
 
@@ -229,9 +229,6 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
 
-upload_templates: batch_bigquery_template batch_segmented_bigquery
-
-upload_templates_latest: batch_bigquery_template_latest batch_segmented_bigquery_latest
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
