@@ -173,7 +173,7 @@ example_run_template_segmented_table: ## Run the Segmented Profile Template in t
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
-		--parameters segment_column=type
+		--parameters segment_column=type \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
 		--num-workers 68
