@@ -122,7 +122,7 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template
-example_run_template_table: JOB_NAME=$(NAME)-$(TEMPLATE)
+example_run_template_table: JOB_NAME=$(NAME)-batch-template
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -140,8 +140,8 @@ example_run_template_table: ## Run the Profile Template in table mode
 
 
 example_run_template_table: REGION=us-central1
-example_run_template_table: TEMPLATE=batch_segmented_bigquery
-example_run_template_table: JOB_NAME=$(NAME)-$(TEMPLATE)
+example_run_template_table: TEMPLATE=batch_bigquery_template
+example_run_template_table: JOB_NAME=$(NAME)-batch-template
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -153,7 +153,6 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
-		--parameters segment_column=type \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
 		--num-workers 68
@@ -161,7 +160,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 
 example_run_template_segmented_table: REGION=us-central1
 example_run_template_segmented_table: TEMPLATE=batch_segmented_bigquery
-example_run_template_segmented_table: JOB_NAME=$(NAME)-$(TEMPLATE)
+example_run_template_segmented_table: JOB_NAME=$(NAME)-segmented
 example_run_template_segmented_table: SHA=latest
 example_run_template_segmented_table: ## Run the Segmented Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -181,7 +180,7 @@ example_run_template_segmented_table: ## Run the Segmented Profile Template in t
 
 example_run_template_query: REGION=us-central1
 example_run_template_query: TEMPLATE=batch_bigquery_template
-example_run_template_query: JOB_NAME=$(NAME)-$(TEMPLATE)
+example_run_template_query: JOB_NAME=$(NAME)-batch-template
 example_run_template_query: SHA=latest
 example_run_template_query: ## Run the Profile Template in query mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -200,7 +199,7 @@ example_run_template_query: ## Run the Profile Template in query mode
 
 example_run_template_offset: REGION=us-central1
 example_run_template_offset: TEMPLATE=batch_bigquery_template
-example_run_template_offset: JOB_NAME=$(NAME)-$(TEMPLATE)
+example_run_template_offset: JOB_NAME=$(NAME)-batch-template
 example_run_template_offset: SHA=latest
 example_run_template_offset: ## Run the Profile Template in offset mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
