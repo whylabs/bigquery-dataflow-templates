@@ -23,7 +23,14 @@ batch_bigquery_template_latest: upload_template version_metadata ## Upload the d
 batch_bigquery_template: NAME=batch_bigquery_template
 batch_bigquery_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
-integ: example_run_template_table
+batch_segmented_bigquery_latest: NAME=batch_segmented_bigquery
+batch_segmented_bigquery_latest: VERSION=latest
+batch_segmented_bigquery_latest: upload_template version_metadata ## Upload the dataflow template as the `latest` tag. 
+
+batch_segmented_bigquery: NAME=batch_segmented_bigquery
+batch_segmented_bigquery: upload_template version_metadata ## Upload the dataflow template that profiles a query
+
+integ: example_run_template_table example_run_template_segmented_table
 
 example_run_direct_table_btc: JOB_NAME=$(NAME)
 example_run_direct_table_btc: TEMPLATE=batch_bigquery_template
@@ -132,6 +139,25 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--num-workers 68
 
 
+example_run_template_table: JOB_NAME=$(NAME)
+example_run_template_table: REGION=us-central1
+example_run_template_table: TEMPLATE=batch_segmemted_bigquery
+example_run_template_table: SHA=latest
+example_run_template_table: ## Run the Profile Template in table mode
+	gcloud dataflow flex-template run "$(JOB_NAME)" \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
+		--parameters input-mode=BIGQUERY_TABLE \
+		--parameters input-bigquery-table=whylogs-359820:hacker_news.full \
+		--parameters date-column=time_ts \
+		--parameters date-grouping-frequency=Y \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
+		--parameters segment_column=type
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region $(REGION) \
+		--num-workers 68
+
 
 example_run_template_query: JOB_NAME=$(NAME)
 example_run_template_query: REGION=us-central1
@@ -182,6 +208,10 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--py-path=src/ \
 		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
+
+upload_templates: batch_bigquery_template batch_segmented_bigquery
+
+upload_templates_latest: batch_bigquery_template_latest batch_segmented_bigquery_latest
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha

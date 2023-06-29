@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload template to GCS
         if: ${{ github.event_name == 'pull_request' }}
-        run: poetry run make batch_bigquery_template SHA=${{github.sha}}
+        run: poetry run make upload_templates SHA=${{github.sha}}
 
       - name: Do a test job
         if: ${{ github.event_name == 'pull_request' }}
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload template to GCS as 'latest'
         if: ${{ github.event_name == 'push' }}
-        run: poetry run make batch_bigquery_template_latest
+        run: poetry run make upload_templates_latest
 
   approve_integ_test:
     name: Approve the integ test from the main workflow in GCS console
