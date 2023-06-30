@@ -107,7 +107,7 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_SQL \
 		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.comments`' \
-		--date-column=time_ts \
+		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
@@ -129,7 +129,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=BIGQUERY_TABLE \
 		--parameters input-bigquery-table=whylogs-359820:hacker_news.comments \
-		--parameters date-column=time_ts \
+		--parameters date-column=timestamp \
 		--parameters date-grouping-frequency=Y \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
@@ -148,7 +148,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=BIGQUERY_TABLE \
 		--parameters input-bigquery-table=whylogs-359820:hacker_news.full \
-		--parameters date-column=time_ts \
+		--parameters date-column=timestamp \
 		--parameters date-grouping-frequency=Y \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
@@ -167,7 +167,7 @@ example_run_template_segmented_table: ## Run the Segmented Profile Template in t
 		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=BIGQUERY_TABLE \
 		--parameters input-bigquery-table=whylogs-359820:hacker_news.full \
-		--parameters date-column=time_ts \
+		--parameters date-column=timestamp \
 		--parameters date-grouping-frequency=Y \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
