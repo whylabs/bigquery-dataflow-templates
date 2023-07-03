@@ -43,7 +43,7 @@ class TemplateArgs:
     logging_level: str
     date_column: str
     date_grouping_frequency: str
-    segment_column: Optional[str]
+    segment_column: str
 
 
 @dataclass
@@ -115,23 +115,29 @@ class ProfileViews(beam.DoFn):
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
         self.logger.info(f"Using {self.segment_column} for segmentation")
+        
+        segment_columns = self.segment_column.split(",")
 
-        column_segments = segment_on_column(self.segment_column)
+        for segment_column in segment_columns:
+            # trim whitespaces on every string
+            segment_column = segment_column.strip()
+            
+            column_segments = segment_on_column(segment_column)
 
-        for date_group, dataframe in grouped:
-            # pandas includes every date in the range, not just the ones that had rows...
-            # https://github.com/pandas-dev/pandas/issues/47963
-            if len(dataframe) == 0:
-                continue
+            for date_group, dataframe in grouped:
+                # pandas includes every date in the range, not just the ones that had rows...
+                # https://github.com/pandas-dev/pandas/issues/47963
+                if len(dataframe) == 0:
+                    continue
 
-            result_set = why.log(dataframe, schema=DatasetSchema(segments=column_segments))
-            views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
-            for segmented_view in views_list:
+                result_set = why.log(dataframe, schema=DatasetSchema(segments=column_segments))
+                views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
+                for segmented_view in views_list:
 
-                seg_def = SegmentDefinition(
-                    segment_column=self.segment_column, segment=segmented_view.segment, date_group=str(date_group)
-                )
-                yield (seg_def, segmented_view.profile_view)
+                    seg_def = SegmentDefinition(
+                        segment_column=segment_column, segment=segmented_view.segment, date_group=str(date_group)
+                    )
+                    yield (seg_def, segmented_view.profile_view)
 
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -366,7 +372,7 @@ def run() -> None:
     parser.add_argument(
         "--segment_column",
         dest="segment_column",
-        required=False,
+        required=True,
         help="The column to segment the dataset. Currently supports only one column for segmentation",
     )
 

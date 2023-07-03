@@ -98,7 +98,7 @@ example_run_direct_segmented_table: requirements.txt ## Run the profile directly
 		--runner=DataflowRunner \
 		--dataset-id=model-12 \
 		--requirements_file=$(REQUIREMENTS) \
-		--segment_column=type
+		--segment_column="type, dead"
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template
