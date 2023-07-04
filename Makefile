@@ -10,7 +10,7 @@ SHA=$(shell git rev-parse HEAD)
 VERSION=$(SHA)
 REQUIREMENTS=requirements.txt
 
-.PHONY: default batch_bigquery_template batch_segmented_bigquery upload_template 
+.PHONY: default batch_bigquery_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
 .PHONY: lint format format-fix test setup version_metadata help requirements
 
@@ -22,13 +22,6 @@ batch_bigquery_template_latest: upload_template version_metadata ## Upload the d
 
 batch_bigquery_template: NAME=batch_bigquery_template
 batch_bigquery_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
-
-batch_segmented_bigquery_latest: NAME=batch_segmented_bigquery
-batch_segmented_bigquery_latest: VERSION=latest
-batch_segmented_bigquery_latest: upload_template version_metadata ## Upload the dataflow template as the `latest` tag. 
-
-batch_segmented_bigquery: NAME=batch_segmented_bigquery
-batch_segmented_bigquery: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
 integ: example_run_template_table example_run_template_segmented_table
 
@@ -61,7 +54,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_TABLE \
-		--input-bigquery-sql=bigquery-public-data.hacker_news.full \
+		--input-bigquery-table=bigquery-public-data.hacker_news.full \
 		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-fjx9Rz \
@@ -78,7 +71,7 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--requirements_file=$(REQUIREMENTS)
 
 example_run_direct_segmented_table: JOB_NAME=$(NAME)
-example_run_direct_segmented_table: TEMPLATE=batch_segmented_bigquery
+example_run_direct_segmented_table: TEMPLATE=batch_bigquery_template
 example_run_direct_segmented_table: requirements.txt ## Run the profile directly, job without templatizing it first.
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
@@ -159,7 +152,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 
 
 example_run_template_segmented_table: REGION=us-central1
-example_run_template_segmented_table: TEMPLATE=batch_segmented_bigquery
+example_run_template_segmented_table: TEMPLATE=batch_bigquery_template
 example_run_template_segmented_table: JOB_NAME=$(NAME)-segmented
 example_run_template_segmented_table: SHA=latest
 example_run_template_segmented_table: ## Run the Segmented Profile Template in table mode

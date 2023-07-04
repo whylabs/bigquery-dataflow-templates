@@ -19,6 +19,7 @@ def test_get_input_query() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     input = p.get_input(args)
@@ -43,6 +44,7 @@ def test_get_input_query_invalid_input() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     with pytest.raises(Exception) as e_info:
@@ -66,6 +68,7 @@ def test_get_input_table() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     input = p.get_input(args)
@@ -90,6 +93,7 @@ def test_get_input_table_invalid_input() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     with pytest.raises(Exception) as e_info:
@@ -113,6 +117,7 @@ def test_get_input_offset() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     input = p.get_input(args)
@@ -139,6 +144,7 @@ def test_get_input_offset_invalid_input() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     with pytest.raises(Exception) as e_info:
@@ -162,6 +168,7 @@ def test_get_input_offset_invalid_input_offset() -> None:
         logging_level="INFO",
         date_column="time_ts",
         date_grouping_frequency="D",
+        segment_column=None
     )
 
     input = p.get_input(args)
