@@ -48,13 +48,9 @@ jobs:
       - name: Run test
         run: make test
 
-      - name: Upload batch template to GCS
+      - name: Upload template to GCS
         if: ${{ github.event_name == 'pull_request' }}
         run: poetry run make batch_bigquery_template SHA=${{github.sha}}
-
-      - name: Upload segmented batch template to GCS
-        if: ${{ github.event_name == 'pull_request' }}
-        run: poetry run make batch_segmented_bigquery SHA=${{github.sha}}
 
       - name: Do a test job
         if: ${{ github.event_name == 'pull_request' }}
@@ -67,11 +63,6 @@ jobs:
       - name: Upload batch template to GCS as 'latest'
         if: ${{ github.event_name == 'push' }}
         run: poetry run make batch_bigquery_template_latest
-    
-
-      - name: Upload segmented template to GCS as 'latest'
-        if: ${{ github.event_name == 'push' }}
-        run: poetry run make batch_segmented_bigquery_latest
 
   approve_integ_test:
     name: Approve the integ test from the main workflow in GCS console
