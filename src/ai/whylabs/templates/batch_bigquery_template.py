@@ -43,7 +43,7 @@ class TemplateArgs:
     logging_level: str
     date_column: str
     date_grouping_frequency: str
-    segment_column: Optional[str]
+    segment_columns: Optional[str]
 
 
 @dataclass
@@ -140,7 +140,7 @@ class SegmentedProfileViews(beam.DoFn):
         self.freq = args.date_grouping_frequency
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileViews")
-        self.segment_column = args.segment_column
+        self.segment_columns = args.segment_columns
 
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
@@ -148,7 +148,7 @@ class SegmentedProfileViews(beam.DoFn):
     @beam.DoFn.yields_elements
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[SegmentDefinition, DatasetProfileView]]:
         # If no segment column is informed, no point in running the processing
-        assert self.segment_column is not None
+        assert self.segment_columns is not None
 
         start_time = time.perf_counter()
         tmp_date_col = "_whylogs_datetime"
@@ -156,11 +156,11 @@ class SegmentedProfileViews(beam.DoFn):
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
-        self.logger.info(f"Using {self.segment_column} for segmentation")
+        self.logger.info(f"Using {self.segment_columns} for segmentation")
 
-        segment_columns = self.segment_column.split(",")
+        seg_columns = self.segment_columns.split(",")
 
-        for segment_column in segment_columns:
+        for segment_column in seg_columns:
             # trim whitespaces on every string
             segment_column = segment_column.strip()
 
@@ -444,10 +444,10 @@ def run() -> None:
     )
     parser.add_argument("--output", dest="output", required=True, help="Output file or gs:// path to write results to.")
     parser.add_argument(
-        "--segment_column",
-        dest="segment_column",
+        "--segment_columns",
+        dest="segment_columns",
         required=False,
-        help="The column to segment the dataset. Currently supports only one column for segmentation",
+        help="The column(s) to segment the dataset.",
     )
 
     known_args, pipeline_args = parser.parse_known_args()
@@ -469,7 +469,7 @@ def run() -> None:
         logging_level=known_args.logging_level,
         date_column=known_args.date_column,
         date_grouping_frequency=known_args.date_grouping_frequency,
-        segment_column=known_args.segment_column,
+        segment_columns=known_args.segment_columns,
     )
 
     logger = logging.getLogger()
@@ -479,7 +479,7 @@ def run() -> None:
     with beam.Pipeline(options=pipeline_options) as p:
         result = p | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
 
-        if args.segment_column is not None:
+        if args.segment_columns is not None:
             profiles = result | "Profile with Segments" >> (
                 beam.ParDo(SegmentedProfileViews(args)).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
                 # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)

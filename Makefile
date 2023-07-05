@@ -89,9 +89,9 @@ example_run_direct_segmented_table: requirements.txt ## Run the profile directly
 		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--dataset-id=model-12 \
+		--dataset-id=model-14 \
 		--requirements_file=$(REQUIREMENTS) \
-		--segment_column="type, dead"
+		--segment_columns=type
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template
@@ -99,7 +99,7 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_SQL \
-		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.comments`' \
+		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.full`' \
 		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
@@ -115,7 +115,7 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template
-example_run_template_table: JOB_NAME=$(NAME)-batch-template
+example_run_template_table: JOB_NAME=$(NAME)
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -134,7 +134,7 @@ example_run_template_table: ## Run the Profile Template in table mode
 
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template
-example_run_template_table: JOB_NAME=$(NAME)-batch-template
+example_run_template_table: JOB_NAME=$(NAME)
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -165,7 +165,7 @@ example_run_template_segmented_table: ## Run the Segmented Profile Template in t
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
 		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
-		--parameters segment_column=type \
+		--parameters segment_columns=type \
 		--parameters api-key=$(WHYLABS_API_KEY) \
 		--region $(REGION) \
 		--num-workers 68
@@ -173,7 +173,7 @@ example_run_template_segmented_table: ## Run the Segmented Profile Template in t
 
 example_run_template_query: REGION=us-central1
 example_run_template_query: TEMPLATE=batch_bigquery_template
-example_run_template_query: JOB_NAME=$(NAME)-batch-template
+example_run_template_query: JOB_NAME=$(NAME)
 example_run_template_query: SHA=latest
 example_run_template_query: ## Run the Profile Template in query mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
