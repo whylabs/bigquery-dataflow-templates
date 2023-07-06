@@ -65,7 +65,7 @@
       "label": "Segment columns",
       "isOptional": true,
       "regexes": [
-        "^[a-z0-9,[\\\\s|_-]]*$"
+        "[^,]+$"
       ]
     },
     {
