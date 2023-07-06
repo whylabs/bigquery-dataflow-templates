@@ -27,6 +27,12 @@ INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
 INPUT_MODE_OFFSET = "OFFSET"
 
 
+# TODO try: multi-column segment partition approach
+# TODO try: guardrails for number of columns/number of segments -> or just raise/log a warning
+
+# TODO move string validation to the init methods of the class and not on Process Batch
+
+
 @dataclass
 class TemplateArgs:
     input_mode: str
@@ -54,28 +60,6 @@ class InputBigQuerySQL:
 @dataclass
 class InputBigQueryTable:
     table_spec: str
-
-    def create_accumulator(self) -> DatasetProfileView:
-        return DatasetProfile().view()
-
-    def add_input(self, accumulator: DatasetProfileView, input: List[DatasetProfileView]) -> DatasetProfileView:
-        if len(input) == 0:
-            return accumulator
-
-        profile = DatasetProfile()
-        profile.track(pd.DataFrame.from_dict(input))
-        ret = accumulator.merge(profile.view())
-        return ret
-
-    def merge_accumulators(self, accumulators: List[DatasetProfileView]) -> DatasetProfileView:
-        if len(accumulators) == 1:
-            # logger.info('Returning accumulator, only one to merge')
-            return accumulators[0]
-
-        view: DatasetProfileView = DatasetProfile().view()
-        for current_view in accumulators:
-            view = view.merge(current_view)
-        return view
 
 
 @dataclass
@@ -147,6 +131,7 @@ class SegmentedProfileViews(beam.DoFn):
 
     @beam.DoFn.yields_elements
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[SegmentDefinition, DatasetProfileView]]:
+        # TODO make this validation on the init of the class
         # If no segment column is informed, no point in running the processing
         assert self.segment_columns is not None
 
@@ -251,6 +236,7 @@ class UploadSegmentedToWhylabsFn(beam.DoFn):
         writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
 
         for seg_def, view in batch:
+            # TODO add logger.info on segment information
             self.logger.info("Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id)
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
 
@@ -264,25 +250,18 @@ class UploadSegmentedToWhylabsFn(beam.DoFn):
         yield batch
 
 
-# def serialize_segmented_profiles(input: Tuple[SegmentDefinition, DatasetProfileView]) -> List[bytes]:
-#     """
-#     This function converts a single ProfileIndex into a collection of
-#     serialized DatasetProfileViews so that they can subsequently be written
-#     individually to GCS, rather than as a giant collection that has to be
-#     parsed in a special way to get it back into a DatasetProfileView.
-#     """
-#     return [input[1].serialize()]
-
-
 def serialize_profiles(input: Tuple[Union[str, SegmentDefinition], DatasetProfileView]) -> List[bytes]:
     """
-    Analogous to serialize_segmented_profiles, but for non-segmented use-cases
+    This function converts a single ProfileIndex into a collection of
+    serialized DatasetProfileViews so that they can subsequently be written
+    individually to GCS, rather than as a giant collection that has to be
+    parsed in a special way to get it back into a DatasetProfileView.
     """
     return [input[1].serialize()]
 
 
 class ProfileIndexBatchConverter(ListBatchConverter):
-    def estimate_byte_size(self, batch: List[Tuple[Union[str, SegmentDefinition], DatasetProfileView]]) -> int:
+    def estimate_byte_size(self, batch: List[Tuple[Any, DatasetProfileView]]) -> int:
         logger = logging.getLogger()
         if len(batch) == 0:
             return 0
