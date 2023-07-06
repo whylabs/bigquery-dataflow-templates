@@ -14,7 +14,7 @@ from dateutil import tz
 import whylogs as why
 from whylogs.core.schema import DatasetSchema
 from whylogs.core import DatasetProfile, DatasetProfileView
-from whylogs.core.segmentation_partition import segment_on_column
+from whylogs.core.segmentation_partition import segment_on_column, ColumnMapperFunction, SegmentationPartition
 from whylogs.core.segment import Segment
 from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetProfileView
 
@@ -125,9 +125,9 @@ class SegmentedProfileViews(beam.DoFn):
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileViews")
         
+        assert args.segment_columns is not None
         _segment_columns = args.segment_columns.split(",")
-        assert _segment_columns is not None
-        self.segment_columns_list = [column.split() for column in _segment_columns]
+        self.segment_columns_list = [column.strip() for column in _segment_columns]
 
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
@@ -140,26 +140,30 @@ class SegmentedProfileViews(beam.DoFn):
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
-        self.logger.info(f"Using {self.segment_columns} for segmentation")
+        self.logger.info(f"Using {','.join(self.segment_columns_list)} for segmentation")
 
-        for segment_column in self.segment_columns_list:
+        segmentation_partition = SegmentationPartition(
+            name=",".join(self.segment_columns_list), mapper=ColumnMapperFunction(col_names=self.segment_columns_list)
+        )
 
-            column_segments = segment_on_column(segment_column)
+        multi_column_segments = {segmentation_partition.name: segmentation_partition}
 
-            for date_group, dataframe in grouped:
-                # pandas includes every date in the range, not just the ones that had rows...
-                # https://github.com/pandas-dev/pandas/issues/47963
-                if len(dataframe) == 0:
-                    continue
+        for date_group, dataframe in grouped:
+            # pandas includes every date in the range, not just the ones that had rows...
+            # https://github.com/pandas-dev/pandas/issues/47963
+            if len(dataframe) == 0:
+                continue
 
-                result_set = why.log(dataframe, schema=DatasetSchema(segments=column_segments))
-                views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
-                for segmented_view in views_list:
+            result_set = why.log(df, schema=DatasetSchema(segments=multi_column_segments))
+            views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
+            for segmented_view in views_list:
 
-                    seg_def = SegmentDefinition(
-                        segment_column=segment_column, segment=segmented_view.segment, date_group=str(date_group)
-                    )
-                    yield (seg_def, segmented_view.profile_view)
+                seg_def = SegmentDefinition(
+                    segment_column=segmented_view.partition.name,
+                    segment=segmented_view.segment,
+                    date_group=str(date_group),
+                )
+                yield (seg_def, segmented_view.profile_view)
 
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -256,7 +260,7 @@ def serialize_profiles(input: Tuple[Union[str, SegmentDefinition], DatasetProfil
 
 
 class ProfileIndexBatchConverter(ListBatchConverter):
-    def estimate_byte_size(self, batch: List[Tuple[Any, DatasetProfileView]]) -> int:
+    def estimate_byte_size(self, batch: List[Tuple[Union[str, SegmentDefinition], DatasetProfileView]]) -> int:
         logger = logging.getLogger()
         if len(batch) == 0:
             return 0
@@ -456,9 +460,6 @@ def run() -> None:
         if args.segment_columns is not None:
             profiles = result | "Profile with Segments" >> (
                 beam.ParDo(SegmentedProfileViews(args)).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
-                # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)
-                #     .with_input_types(Tuple[str, DatasetProfileView])
-                #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
                 | "Merge segmented profiles"
                 >> beam.CombinePerKey(ViewCombiner(args))
                 .with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
