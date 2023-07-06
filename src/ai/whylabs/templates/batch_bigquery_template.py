@@ -124,7 +124,7 @@ class SegmentedProfileViews(beam.DoFn):
         self.freq = args.date_grouping_frequency
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileViews")
-        
+
         assert args.segment_columns is not None
         _segment_columns = args.segment_columns.split(",")
         self.segment_columns_list = [column.strip() for column in _segment_columns]
