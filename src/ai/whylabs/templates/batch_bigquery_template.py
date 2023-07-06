@@ -124,17 +124,16 @@ class SegmentedProfileViews(beam.DoFn):
         self.freq = args.date_grouping_frequency
         self.logging_level = args.logging_level
         self.logger = logging.getLogger("ProfileViews")
-        self.segment_columns = args.segment_columns
+        
+        _segment_columns = args.segment_columns.split(",")
+        assert _segment_columns is not None
+        self.segment_columns_list = [column.split() for column in _segment_columns]
 
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.logging_level))
 
     @beam.DoFn.yields_elements
     def process_batch(self, batch: List[Dict[str, Any]]) -> Iterator[Tuple[SegmentDefinition, DatasetProfileView]]:
-        # TODO make this validation on the init of the class
-        # If no segment column is informed, no point in running the processing
-        assert self.segment_columns is not None
-
         start_time = time.perf_counter()
         tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)
@@ -143,11 +142,7 @@ class SegmentedProfileViews(beam.DoFn):
 
         self.logger.info(f"Using {self.segment_columns} for segmentation")
 
-        seg_columns = self.segment_columns.split(",")
-
-        for segment_column in seg_columns:
-            # trim whitespaces on every string
-            segment_column = segment_column.strip()
+        for segment_column in self.segment_columns_list:
 
             column_segments = segment_on_column(segment_column)
 
