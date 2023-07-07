@@ -88,7 +88,6 @@ class ProfileViews(beam.DoFn):
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
-        # profiles = ProfileIndex()
         results: List[Tuple[str, DatasetProfileView]] = []
         for date_group, dataframe in grouped:
             # pandas includes every date in the range, not just the ones that had rows...
@@ -117,7 +116,7 @@ class SegmentedProfileViews(beam.DoFn):
         self.date_column = args.date_column
         self.freq = args.date_grouping_frequency
         self.logging_level = args.logging_level
-        self.logger = logging.getLogger("ProfileViews")
+        self.logger = logging.getLogger("SegmentedProfileViews")
 
         assert args.segment_columns is not None
         _segment_columns = args.segment_columns.split(",")
@@ -419,7 +418,7 @@ def run() -> None:
         "--segment_columns",
         dest="segment_columns",
         required=False,
-        help="The column(s) to segment the dataset.",
+        help="The column or columns to segment the dataset on.",
     )
 
     known_args, pipeline_args = parser.parse_known_args()
