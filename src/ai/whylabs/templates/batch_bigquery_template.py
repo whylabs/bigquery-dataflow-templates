@@ -140,14 +140,14 @@ class SegmentedProfileViews(beam.DoFn):
         )
 
         multi_column_segments = {segmentation_partition.name: segmentation_partition}
-
+        dataset_schema = DatasetSchema(segments=multi_column_segments)
         for date_group, dataframe in grouped:
             # pandas includes every date in the range, not just the ones that had rows...
             # https://github.com/pandas-dev/pandas/issues/47963
             if len(dataframe) == 0:
                 continue
 
-            result_set = why.log(df, schema=DatasetSchema(segments=multi_column_segments))
+            result_set = why.log(dataframe, schema=dataset_schema)
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
 
