@@ -27,12 +27,6 @@ INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
 INPUT_MODE_OFFSET = "OFFSET"
 
 
-# TODO try: multi-column segment partition approach
-# TODO try: guardrails for number of columns/number of segments -> or just raise/log a warning
-
-# TODO move string validation to the init methods of the class and not on Process Batch
-
-
 @dataclass
 class TemplateArgs:
     input_mode: str
@@ -235,8 +229,8 @@ class UploadSegmentedToWhylabsFn(beam.DoFn):
         writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
 
         for seg_def, view in batch:
-            # TODO add logger.info on segment information
             self.logger.info("Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id)
+            self.logger.info(f"Current segment is: {seg_def.segment_column} = {seg_def.segment.key}")
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
 
             seg_view = SegmentedDatasetProfileView(
