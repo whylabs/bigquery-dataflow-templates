@@ -91,7 +91,7 @@ example_run_direct_segmented_table: requirements.txt ## Run the profile directly
 		--runner=DataflowRunner \
 		--dataset-id=model-14 \
 		--requirements_file=$(REQUIREMENTS) \
-		--segment_columns=type
+		--segment_columns="type, dead"
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template
@@ -112,6 +112,27 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 		--dataset-id=model-42 \
 		--requirements_file=$(REQUIREMENTS)
 
+
+example_run_direct_segmented_query: JOB_NAME=$(NAME)
+example_run_direct_segmented_query: TEMPLATE=batch_bigquery_template
+example_run_direct_segmented_query: requirements.txt ## Run the profile directly, job without templatizing it first.
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(JOB_NAME)" \
+		--input-mode=BIGQUERY_SQL \
+		--input-bigquery-sql='SELECT title, url, text, `by`, score, time, timestamp, type, id, parent, descendants, ranking, \
+deleted, COALESCE(dead, FALSE) AS dead FROM `bigquery-public-data.hacker_news.full`' \
+		--date-column=timestamp \
+		--date-grouping-frequency=Y \
+		--org-id=org-fjx9Rz \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-14 \
+		--requirements_file=$(REQUIREMENTS) \
+		--segment_columns="type, dead"
 
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template

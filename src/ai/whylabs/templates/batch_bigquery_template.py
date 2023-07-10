@@ -65,7 +65,7 @@ class InputOffset:
 
 
 class SegmentDefinition(NamedTuple):
-    segment_column: str
+    segment_columns: str
     segment: Segment
     date_group: str
 
@@ -152,7 +152,7 @@ class SegmentedProfileViews(beam.DoFn):
             for segmented_view in views_list:
 
                 seg_def = SegmentDefinition(
-                    segment_column=segmented_view.partition.name,
+                    segment_columns=segmented_view.partition.name,
                     segment=segmented_view.segment,
                     date_group=str(date_group),
                 )
@@ -229,13 +229,13 @@ class UploadSegmentedToWhylabsFn(beam.DoFn):
 
         for seg_def, view in batch:
             self.logger.info("Writing segmented dataset profile to %s:%s.", self.args.org_id, self.args.dataset_id)
-            self.logger.info(f"Current segment is: {seg_def.segment_column} = {seg_def.segment.key}")
+            self.logger.info(f"Current segment is: {seg_def.segment_columns} = {seg_def.segment.key}")
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
 
             seg_view = SegmentedDatasetProfileView(
                 profile_view=view,
                 segment=seg_def.segment,
-                partition=segment_on_column(column_name=seg_def.segment_column)[seg_def.segment_column],
+                partition=segment_on_column(column_name=seg_def.segment_columns)[seg_def.segment_columns],
             )
             writer.write(seg_view)
 
