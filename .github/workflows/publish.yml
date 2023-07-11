@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.8.15"
 
-      - uses: Gr1N/setup-poetry@v7
+      - uses: Gr1N/setup-poetry@v8
         name: Install poetry
         with:
           poetry-version: 1.2.2
@@ -59,8 +59,8 @@ jobs:
           make integ NAME=pr-${{github.event.pull_request.number}}-${{github.sha}} \
             SHA=${{github.sha}} \
             WHYLABS_API_KEY=${{secrets.WHYLABS_API_KEY}} 
-
-      - name: Upload template to GCS as 'latest'
+      
+      - name: Upload batch template to GCS as 'latest'
         if: ${{ github.event_name == 'push' }}
         run: poetry run make batch_bigquery_template_latest
 

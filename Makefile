@@ -23,7 +23,7 @@ batch_bigquery_template_latest: upload_template version_metadata ## Upload the d
 batch_bigquery_template: NAME=batch_bigquery_template
 batch_bigquery_template: upload_template version_metadata ## Upload the dataflow template that profiles a query
 
-integ: example_run_template_table
+integ: example_run_template_table example_run_template_segmented_table
 
 example_run_direct_table_btc: JOB_NAME=$(NAME)
 example_run_direct_table_btc: TEMPLATE=batch_bigquery_template
@@ -54,10 +54,10 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_TABLE \
-		--input-bigquery-table=bigquery-public-data:hacker_news.comments \
-		--date-column=time_ts \
+		--input-bigquery-table=bigquery-public-data.hacker_news.full \
+		--date-column=timestamp \
 		--date-grouping-frequency=Y \
-		--org-id=org-0 \
+		--org-id=org-fjx9Rz \
 		--project=whylogs-359820 \
 		--region=$(REGION) \
 		--logging-level=DEBUG \
@@ -67,8 +67,31 @@ example_run_direct_table: requirements.txt ## Run the profile directly, job with
 		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
 		--api-key=$(WHYLABS_API_KEY) \
 		--runner=DataflowRunner \
-		--dataset-id=model-42 \
+		--dataset-id=model-11 \
 		--requirements_file=$(REQUIREMENTS)
+
+example_run_direct_segmented_table: JOB_NAME=$(NAME)
+example_run_direct_segmented_table: TEMPLATE=batch_bigquery_template
+example_run_direct_segmented_table: requirements.txt ## Run the profile directly, job without templatizing it first.
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(JOB_NAME)" \
+		--input-mode=BIGQUERY_TABLE \
+		--input-bigquery-table=bigquery-public-data.hacker_news.full \
+		--date-column=timestamp \
+		--date-grouping-frequency=Y \
+		--org-id=org-fjx9Rz \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--staging_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/staging \
+		--temp_location=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/tmp \
+		--tmp=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-14 \
+		--requirements_file=$(REQUIREMENTS) \
+		--segment_columns="type, dead"
 
 example_run_direct_query: JOB_NAME=$(NAME)
 example_run_direct_query: TEMPLATE=batch_bigquery_template
@@ -76,8 +99,8 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
 		--job_name="$(JOB_NAME)" \
 		--input-mode=BIGQUERY_SQL \
-		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.comments`' \
-		--date-column=time_ts \
+		--input-bigquery-sql='select * from `bigquery-public-data.hacker_news.full`' \
+		--date-column=timestamp \
 		--date-grouping-frequency=Y \
 		--org-id=org-0 \
 		--project=whylogs-359820 \
@@ -90,16 +113,37 @@ example_run_direct_query: requirements.txt ## Run the profile directly, job with
 		--requirements_file=$(REQUIREMENTS)
 
 
-example_run_template_table: JOB_NAME=$(NAME)
+example_run_direct_segmented_query: JOB_NAME=$(NAME)
+example_run_direct_segmented_query: TEMPLATE=batch_bigquery_template
+example_run_direct_segmented_query: requirements.txt ## Run the profile directly, job without templatizing it first.
+	poetry run python src/ai/whylabs/templates/$(TEMPLATE).py \
+		--job_name="$(JOB_NAME)" \
+		--input-mode=BIGQUERY_SQL \
+		--input-bigquery-sql='SELECT title, url, text, `by`, score, time, timestamp, type, id, parent, descendants, ranking, \
+deleted, COALESCE(dead, FALSE) AS dead FROM `bigquery-public-data.hacker_news.full`' \
+		--date-column=timestamp \
+		--date-grouping-frequency=Y \
+		--org-id=org-fjx9Rz \
+		--project=whylogs-359820 \
+		--region=$(REGION) \
+		--logging-level=DEBUG \
+		--output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/profile \
+		--api-key=$(WHYLABS_API_KEY) \
+		--runner=DataflowRunner \
+		--dataset-id=model-14 \
+		--requirements_file=$(REQUIREMENTS) \
+		--segment_columns="type, dead"
+
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template
+example_run_template_table: JOB_NAME=$(NAME)
 example_run_template_table: SHA=latest
 example_run_template_table: ## Run the Profile Template in table mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
 		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
 		--parameters input-mode=BIGQUERY_TABLE \
 		--parameters input-bigquery-table=whylogs-359820:hacker_news.comments \
-		--parameters date-column=time_ts \
+		--parameters date-column=timestamp \
 		--parameters date-grouping-frequency=Y \
 		--parameters org-id=org-0 \
 		--parameters dataset-id=model-42 \
@@ -109,10 +153,48 @@ example_run_template_table: ## Run the Profile Template in table mode
 		--num-workers 68
 
 
+example_run_template_table: REGION=us-central1
+example_run_template_table: TEMPLATE=batch_bigquery_template
+example_run_template_table: JOB_NAME=$(NAME)
+example_run_template_table: SHA=latest
+example_run_template_table: ## Run the Profile Template in table mode
+	gcloud dataflow flex-template run "$(JOB_NAME)" \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
+		--parameters input-mode=BIGQUERY_TABLE \
+		--parameters input-bigquery-table=whylogs-359820:hacker_news.full \
+		--parameters date-column=timestamp \
+		--parameters date-grouping-frequency=Y \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region $(REGION) \
+		--num-workers 68
 
-example_run_template_query: JOB_NAME=$(NAME)
+
+example_run_template_segmented_table: REGION=us-central1
+example_run_template_segmented_table: TEMPLATE=batch_bigquery_template
+example_run_template_segmented_table: JOB_NAME=$(NAME)-segmented
+example_run_template_segmented_table: SHA=latest
+example_run_template_segmented_table: ## Run the Segmented Profile Template in table mode
+	gcloud dataflow flex-template run "$(JOB_NAME)" \
+		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
+		--parameters input-mode=BIGQUERY_TABLE \
+		--parameters input-bigquery-table=whylogs-359820:hacker_news.full \
+		--parameters date-column=timestamp \
+		--parameters date-grouping-frequency=Y \
+		--parameters org-id=org-0 \
+		--parameters dataset-id=model-42 \
+		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
+		--parameters segment_columns=type \
+		--parameters api-key=$(WHYLABS_API_KEY) \
+		--region $(REGION) \
+		--num-workers 68
+
+
 example_run_template_query: REGION=us-central1
 example_run_template_query: TEMPLATE=batch_bigquery_template
+example_run_template_query: JOB_NAME=$(NAME)
 example_run_template_query: SHA=latest
 example_run_template_query: ## Run the Profile Template in query mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -129,9 +211,9 @@ example_run_template_query: ## Run the Profile Template in query mode
 		--num-workers 68
 
 
-example_run_template_offset: JOB_NAME=$(NAME)
 example_run_template_offset: REGION=us-central1
 example_run_template_offset: TEMPLATE=batch_bigquery_template
+example_run_template_offset: JOB_NAME=$(NAME)-batch-template
 example_run_template_offset: SHA=latest
 example_run_template_offset: ## Run the Profile Template in offset mode
 	gcloud dataflow flex-template run "$(JOB_NAME)" \
@@ -159,6 +241,7 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--py-path=src/ \
 		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
+
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha

@@ -60,6 +60,15 @@
       "label": "Date column"
     },
     {
+      "name": "segment_columns",
+      "helpText": "The string names of the column that will be used for segmentation. If using more than one, it should be split by commas",
+      "label": "Segment columns",
+      "isOptional": true,
+      "regexes": [
+        "^[^,\\n]*(,[^,\\n]+)*$"
+      ]
+    },
+    {
       "regexes": [
         "^(INFO|DEBUG|WARN|WARNING|ERROR|FATAL|CRITICAL)$"
       ],
