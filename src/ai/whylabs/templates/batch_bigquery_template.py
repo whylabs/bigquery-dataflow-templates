@@ -151,7 +151,7 @@ class SegmentedProfileViews(beam.DoFn):
                 for col in self.segment_columns_list:
                     if dataframe[col].isna().values.any():
                         self.logger.warning(
-                            "Segmenting on columns with NaN's can lead to a whylogs error"
+                            f"Segmenting on column {col} with null values leads to a whylogs KeyError"
                         )
             
             result_set = why.log(dataframe, schema=dataset_schema)
