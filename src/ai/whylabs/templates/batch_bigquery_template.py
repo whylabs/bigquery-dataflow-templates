@@ -94,7 +94,7 @@ class ProfileViews(beam.DoFn):
             # https://github.com/pandas-dev/pandas/issues/47963
             if len(dataframe) == 0:
                 continue
-
+            
             ts: datetime = date_group.to_pydatetime()
             profile = DatasetProfile(dataset_timestamp=ts)
             self.logger.debug(
@@ -146,7 +146,14 @@ class SegmentedProfileViews(beam.DoFn):
             # https://github.com/pandas-dev/pandas/issues/47963
             if len(dataframe) == 0:
                 continue
-
+            
+            if len(self.segment_columns_list) > 1:
+                for col in self.segment_columns_list:
+                    if dataframe[col].isna().values.any():
+                        self.logger.warning(
+                            "Segmenting on columns with NaN's can lead to a whylogs error"
+                        )
+            
             result_set = why.log(dataframe, schema=dataset_schema)
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
@@ -215,7 +222,7 @@ class UploadToWhylabsFn(beam.DoFn):
 class UploadSegmentedToWhylabsFn(beam.DoFn):
     def __init__(self, args: TemplateArgs):
         self.args = args
-        self.logger = logging.getLogger("UploadToWhylabsFn")
+        self.logger = logging.getLogger("UploadSegmentedToWhylabsFn")
 
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
@@ -448,8 +455,8 @@ def run() -> None:
     read_step = get_read_input(args, logger)
 
     with beam.Pipeline(options=pipeline_options) as p:
-        result = p | "ReadTable" >> read_step.with_output_types(Dict[str, Any])
-
+        result = (p | "ReadTable" >> read_step.with_output_types(Dict[str, Any]))
+        
         if args.segment_columns is not None:
             profiles = result | "Profile with Segments" >> (
                 beam.ParDo(SegmentedProfileViews(args)).with_output_types(Tuple[SegmentDefinition, DatasetProfileView])
