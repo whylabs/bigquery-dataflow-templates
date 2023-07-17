@@ -146,14 +146,12 @@ class SegmentedProfileViews(beam.DoFn):
             # https://github.com/pandas-dev/pandas/issues/47963
             if len(dataframe) == 0:
                 continue
-            
+
             if len(self.segment_columns_list) > 1:
                 for col in self.segment_columns_list:
                     if dataframe[col].isna().values.any():
-                        self.logger.warning(
-                            f"Segmenting on column {col} with null values leads to a whylogs KeyError"
-                        )
-            
+                        self.logger.warning(f"Segmenting on column {col} with null values leads to a whylogs KeyError")
+
             result_set = why.log(dataframe, schema=dataset_schema)
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
