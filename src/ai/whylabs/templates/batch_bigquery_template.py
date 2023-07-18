@@ -131,6 +131,8 @@ class SegmentedProfileViews(beam.DoFn):
         tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
+        if df[tmp_date_col].isna().values.any():
+            self.logger.warning(f"Column {self.date_column} has NaT rows which will be dropped by the template.")
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
         self.logger.info(f"Using {','.join(self.segment_columns_list)} for segmentation")
