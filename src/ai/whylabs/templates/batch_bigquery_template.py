@@ -86,6 +86,8 @@ class ProfileViews(beam.DoFn):
         tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
+        if df[tmp_date_col].isna().values.any():
+            self.logger.warning(f"Column {self.date_column} has NaT rows which will be dropped by the template.")
         grouped = df.set_index(tmp_date_col).groupby(pd.Grouper(freq=self.freq))
 
         results: List[Tuple[str, DatasetProfileView]] = []
@@ -130,6 +132,14 @@ class SegmentedProfileViews(beam.DoFn):
         start_time = time.perf_counter()
         tmp_date_col = "_whylogs_datetime"
         df = pd.DataFrame(batch)
+
+        # This can be removed after issue on whylogs is solved
+        # https://github.com/whylabs/whylogs/issues/1300
+        if len(self.segment_columns_list) > 1:
+            for col in self.segment_columns_list:
+                if df[col].isna().values.any():
+                    raise ValueError(f"Segmenting with nullable columns {col} is not supported.")
+
         df[tmp_date_col] = pd.to_datetime(df[self.date_column])
         if df[tmp_date_col].isna().values.any():
             self.logger.warning(f"Column {self.date_column} has NaT rows which will be dropped by the template.")
