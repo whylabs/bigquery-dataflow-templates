@@ -46,7 +46,7 @@ jobs:
         run: make format
 
       - name: Run version metadata
-        run: make version_py
+        run: make version_string
 
       - name: Run test
         run: make test

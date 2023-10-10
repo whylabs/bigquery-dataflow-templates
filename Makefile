@@ -12,7 +12,7 @@ REQUIREMENTS=requirements.txt
 
 .PHONY: default batch_bigquery_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
-.PHONY: lint format format-fix test setup version_metadata help requirements version_py ./src/ai/whylabs/templates/version.py
+.PHONY: lint format format-fix test setup version_metadata help requirements version_string
 
 default:help
 
@@ -134,24 +134,6 @@ deleted, COALESCE(dead, FALSE) AS dead FROM `bigquery-public-data.hacker_news.fu
 		--requirements_file=$(REQUIREMENTS) \
 		--segment_columns="type, dead"
 
-example_run_template_table: REGION=us-central1
-example_run_template_table: TEMPLATE=batch_bigquery_template
-example_run_template_table: JOB_NAME=$(NAME)
-example_run_template_table: SHA=latest
-example_run_template_table: ## Run the Profile Template in table mode
-	gcloud dataflow flex-template run "$(JOB_NAME)" \
-		--template-file-gcs-location gs://$(BUCKET_NAME)/$(TEMPLATE)/$(SHA)/$(TEMPLATE).json \
-		--parameters input-mode=BIGQUERY_TABLE \
-		--parameters input-bigquery-table=whylogs-359820:hacker_news.comments \
-		--parameters date-column=timestamp \
-		--parameters date-grouping-frequency=Y \
-		--parameters org-id=org-0 \
-		--parameters dataset-id=model-42 \
-		--parameters output=gs://whylabs-dataflow-templates-tests/$(JOB_NAME)/dataset_profile \
-		--parameters api-key=$(WHYLABS_API_KEY) \
-		--region $(REGION) \
-		--num-workers 68
-
 
 example_run_template_table: REGION=us-central1
 example_run_template_table: TEMPLATE=batch_bigquery_template
@@ -242,10 +224,8 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
 
-./src/ai/whylabs/templates/version.py:
-	poetry run python ./scripts/create_version.py $(SHA) > ./src/ai/whylabs/templates/version.py
-
-version_py: ./src/ai/whylabs/templates/version.py  ## Generate the version python module
+version_string:  ## Update the version string
+	sed -i 's/_dev_local/$(SHA)/g' ./src/ai/whylabs/templates/*.py
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha
@@ -266,10 +246,10 @@ lint:
 	poetry run mypy src/
 
 format:
-	poetry run black --check --line-length 120 src
+	poetry run black --check --line-length 140 src
 
 format-fix:
-	poetry run black --line-length 120 src
+	poetry run black --line-length 140 src
 
 setup:
 	poetry install
