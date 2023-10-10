@@ -12,7 +12,7 @@ REQUIREMENTS=requirements.txt
 
 .PHONY: default batch_bigquery_template upload_template 
 .PHONY: example_run_direct_table example_run_template_table example_run_template_query example_run_template_offset
-.PHONY: lint format format-fix test setup version_metadata help requirements
+.PHONY: lint format format-fix test setup version_metadata help requirements version_py ./src/ai/whylabs/templates/version.py
 
 default:help
 
@@ -242,6 +242,10 @@ upload_template: template_requirements.txt # Base target for other targets to us
 		--py-path=template_requirements.txt \
 		--metadata-file=metadata/$(NAME)_metadata.json
 
+./src/ai/whylabs/templates/version.py:
+	poetry run python ./scripts/create_version.py $(SHA) > ./src/ai/whylabs/templates/version.py
+
+version_py: ./src/ai/whylabs/templates/version.py  ## Generate the version python module
 
 version_metadata:
 	echo "$(SHA)" > /tmp/version_$(SHA).sha

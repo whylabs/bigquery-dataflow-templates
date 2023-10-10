@@ -17,6 +17,7 @@ from whylogs.core import DatasetProfile, DatasetProfileView
 from whylogs.core.segmentation_partition import segment_on_column, ColumnMapperFunction, SegmentationPartition
 from whylogs.core.segment import Segment
 from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetProfileView
+from .version import get_version
 
 
 # Values for Input Mode. These can't be an enum because enums lead
@@ -25,6 +26,12 @@ from whylogs.core.view.segmented_dataset_profile_view import SegmentedDatasetPro
 INPUT_MODE_BIGQUERY_SQL = "BIGQUERY_SQL"
 INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
 INPUT_MODE_OFFSET = "OFFSET"
+
+
+def attach_metadata(view: DatasetProfileView) -> None:
+    view._metadata = view._metadata or {}
+    view._metadata["integration"] = "dataflow"
+    view._metadata["integration_version"] = get_version()
 
 
 @dataclass
@@ -106,7 +113,9 @@ class ProfileViews(beam.DoFn):
                 ts.tzinfo,
             )
             profile.track(dataframe)
-            yield (str(date_group), profile.view())
+            view = profile.view()
+            attach_metadata(view)
+            yield (str(date_group), view)
 
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -162,7 +171,7 @@ class SegmentedProfileViews(beam.DoFn):
             result_set = why.log(dataframe, schema=dataset_schema)
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
-
+                attach_metadata(segmented_view._profile_view)
                 seg_def = SegmentDefinition(
                     segment_columns=segmented_view.partition.name,
                     segment=segmented_view.segment,

@@ -45,6 +45,9 @@ jobs:
       - name: Check formatting
         run: make format
 
+      - name: Run version metadata
+        run: make version_py
+
       - name: Run test
         run: make test
 
