@@ -27,6 +27,12 @@ INPUT_MODE_BIGQUERY_TABLE = "BIGQUERY_TABLE"
 INPUT_MODE_OFFSET = "OFFSET"
 
 
+def attach_metadata(view: DatasetProfileView) -> None:
+    view._metadata = view._metadata or {}
+    view._metadata["integration"] = "dataflow"
+    view._metadata["integration_version"] = "_dev_local"  # Updated during CI
+
+
 @dataclass
 class TemplateArgs:
     input_mode: str
@@ -106,7 +112,9 @@ class ProfileViews(beam.DoFn):
                 ts.tzinfo,
             )
             profile.track(dataframe)
-            yield (str(date_group), profile.view())
+            view = profile.view()
+            attach_metadata(view)
+            yield (str(date_group), view)
 
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -162,7 +170,7 @@ class SegmentedProfileViews(beam.DoFn):
             result_set = why.log(dataframe, schema=dataset_schema)
             views_list: List[SegmentedDatasetProfileView] = result_set.get_writables()
             for segmented_view in views_list:
-
+                attach_metadata(segmented_view._profile_view)
                 seg_def = SegmentDefinition(
                     segment_columns=segmented_view.partition.name,
                     segment=segmented_view.segment,
@@ -207,17 +215,13 @@ class UploadToWhylabsFn(beam.DoFn):
     def setup(self) -> None:
         self.logger.setLevel(logging.getLevelName(self.args.logging_level))
 
-    def process_batch(
-        self, batch: List[Tuple[str, DatasetProfileView]]
-    ) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
+    def process_batch(self, batch: List[Tuple[str, DatasetProfileView]]) -> Iterator[List[Tuple[str, DatasetProfileView]]]:
         from whylogs.api.writer.whylabs import WhyLabsWriter
 
         writer = WhyLabsWriter(org_id=self.args.org_id, api_key=self.args.api_key, dataset_id=self.args.dataset_id)
 
         for date_str, view in batch:
-            self.logger.info(
-                "Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str
-            )
+            self.logger.info("Writing dataset profile to %s:%s for timestamp %s.", self.args.org_id, self.args.dataset_id, date_str)
             self.logger.info("Dataset profile's internal dataset timestamp is %s", view.dataset_timestamp)
             writer.write(view)
 
@@ -352,9 +356,7 @@ def get_read_input(args: TemplateArgs, logger: logging.Logger) -> ReadFromBigQue
 def run() -> None:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--input-mode", dest="input_mode", required=True, help="One of BIGQUERY_SQL | BIGQUERY_TABLE | OFFSET"
-    )
+    parser.add_argument("--input-mode", dest="input_mode", required=True, help="One of BIGQUERY_SQL | BIGQUERY_TABLE | OFFSET")
     parser.add_argument(
         "--input-bigquery-sql",
         dest="input_bigquery_sql",
@@ -410,9 +412,7 @@ def run() -> None:
         default="INFO",
         help="One of the logging levels from the logging module.",
     )
-    parser.add_argument(
-        "--org-id", dest="org_id", required=True, help="The WhyLabs organization id to write the result profiles to."
-    )
+    parser.add_argument("--org-id", dest="org_id", required=True, help="The WhyLabs organization id to write the result profiles to.")
     parser.add_argument(
         "--dataset-id",
         dest="dataset_id",
@@ -473,18 +473,14 @@ def run() -> None:
 
             # A fork that uploads to WhyLabs
             profiles | "Upload Segments to WhyLabs" >> (
-                beam.ParDo(UploadSegmentedToWhylabsFn(args)).with_input_types(
-                    Tuple[SegmentDefinition, DatasetProfileView]
-                )
+                beam.ParDo(UploadSegmentedToWhylabsFn(args)).with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
             )
 
             # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
             (
                 profiles
                 | "Serialize Segmented Profiles"
-                >> beam.ParDo(serialize_profiles)
-                .with_input_types(Tuple[SegmentDefinition, DatasetProfileView])
-                .with_output_types(bytes)
+                >> beam.ParDo(serialize_profiles).with_input_types(Tuple[SegmentDefinition, DatasetProfileView]).with_output_types(bytes)
                 | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
             )
 
@@ -494,22 +490,17 @@ def run() -> None:
                 # | 'Group into batches' >> beam.GroupIntoBatches(1000, max_buffering_duration_secs=60)
                 #     .with_input_types(Tuple[str, DatasetProfileView])
                 #     .with_output_types(Tuple[str,  List[DatasetProfileView]])
-                | "Merge profiles"
-                >> beam.CombinePerKey(ViewCombiner(args)).with_output_types(Tuple[str, DatasetProfileView])
+                | "Merge profiles" >> beam.CombinePerKey(ViewCombiner(args)).with_output_types(Tuple[str, DatasetProfileView])
             )
 
             # A fork that uploads to WhyLabs
-            profiles | "Upload to WhyLabs" >> (
-                beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView])
-            )
+            profiles | "Upload to WhyLabs" >> (beam.ParDo(UploadToWhylabsFn(args)).with_input_types(Tuple[str, DatasetProfileView]))
 
             # A fork that uploads to GCS, each dataset profile in serialized form, one per file.
             (
                 profiles
                 | "Serialize Profiles"
-                >> beam.ParDo(serialize_profiles)
-                .with_input_types(Tuple[str, DatasetProfileView])
-                .with_output_types(bytes)
+                >> beam.ParDo(serialize_profiles).with_input_types(Tuple[str, DatasetProfileView]).with_output_types(bytes)
                 | "Upload to GCS" >> WriteToText(args.output, max_records_per_shard=1, file_name_suffix=".bin")
             )
 
